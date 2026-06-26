@@ -1,12 +1,12 @@
-# Shannon Desktop App
+# Shannon 桌面应用
 
-Multi-platform desktop application for Shannon AI agents built with [Tauri](https://tauri.app/) and [Next.js](https://nextjs.org/).
+使用  [Next.js](https://nextjs.org/) 构建的 Shannon AI agents 桌面应用。
 
-## Quick Start
+## 快速开始
 
-### Prerequisites
+### 前置条件
 
-The desktop app connects to Shannon backend services. Start the backend first:
+桌面应用会连接到 Shannon 后端服务。请先启动后端：
 
 ```bash
 # From repository root
@@ -16,9 +16,9 @@ make dev
 curl http://localhost:8080/health
 ```
 
-### Option 1: Local Web UI (Development)
+### 选项 1：本地 Web UI（开发）
 
-Run the UI as a local web application without building native binaries:
+以本地 Web 应用的方式运行 UI，无需构建原生二进制文件：
 
 ```bash
 cd desktop
@@ -32,28 +32,28 @@ npm run dev
 # Open http://localhost:3000
 ```
 
-**Features in web mode:**
-- Real-time SSE event streaming
-- Session and task management
-- Visual workflow execution
-- Dark mode support
-- Instant hot reload for development
+**Web 模式下的特性：**
 
-### Option 2: Native Desktop App
+* 实时 SSE 事件流
+* Session 和任务管理
+* 可视化 workflow 执行
+* 支持深色模式
+* 开发时即时热重载
 
-#### Download Pre-built Binaries
+### 选项 2：原生桌面应用
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/Kocoro-lab/Shannon/releases/latest):
+#### 下载预构建二进制文件
 
-| Platform | Formats |
-|----------|---------|
-| **macOS** (Intel & Apple Silicon) | `.dmg` installer, `.app.tar.gz` |
-| **Windows** | `.msi` installer, `.exe` NSIS installer |
-| **Linux** | `.AppImage` (portable), `.deb` (Debian/Ubuntu) |
+从 [GitHub Releases](https://github.com/Kocoro-lab/Shannon/releases/latest) 下载适用于你平台的最新 release：
 
-#### Build from Source
+| 平台                               | 格式                                     |
+| -------------------------------- | -------------------------------------- |
+| **Windows**                      | `.msi` 安装包、`.exe` NSIS 安装包             |
+| **Linux**                        | `.AppImage`（便携版）、`.deb`（Debian/Ubuntu） |
 
-Build the native desktop application for your platform:
+#### 从源码构建
+
+为你的平台构建原生桌面应用：
 
 ```bash
 cd desktop
@@ -70,21 +70,21 @@ npm run tauri:build
 # Linux:   src-tauri/target/release/bundle/appimage/
 ```
 
-## Web UI vs Native App
+## Web UI 与原生应用对比
 
-| Feature | Web UI | Native App |
-|---------|--------|------------|
-| Quick Testing | Instant (`npm run dev`) | Requires build |
-| System Integration | Limited | System tray, notifications |
-| Offline History | No | Dexie.js local database |
-| Performance | Browser overhead | Native rendering |
-| File System Access | Limited | Full Tauri APIs |
-| Auto-updates | No | Built-in updater |
-| Memory Usage | Higher (browser) | Optimized |
+| 特性     | Web UI            | 原生应用           |
+| ------ | ----------------- | -------------- |
+| 快速测试   | 即时（`npm run dev`） | 需要构建           |
+| 系统集成   | 有限                | 系统托盘、通知        |
+| 离线历史   | 无                 | Dexie.js 本地数据库 |
+| 性能     | 浏览器开销             | 原生渲染           |
+| 文件系统访问 | 有限                | 完整 Tauri APIs  |
+| 自动更新   | 无                 | 内置 updater     |
+| 内存使用   | 较高（浏览器）           | 已优化            |
 
-## Development
+## 开发
 
-### Project Structure
+### 项目结构
 
 ```
 desktop/
@@ -102,7 +102,7 @@ desktop/
 └── package.json    # Node dependencies
 ```
 
-### Available Scripts
+### 可用脚本
 
 ```bash
 # Development
@@ -117,9 +117,9 @@ npm run tauri:build  # Build native app for your platform
 npm run lint         # Run ESLint
 ```
 
-### Environment Configuration
+### 环境配置
 
-Create `.env.local` for development:
+为开发创建 `.env.local`：
 
 ```bash
 # Backend API endpoint
@@ -129,37 +129,35 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_DEBUG=true
 ```
 
-See [`.env.local.example`](.env.local.example) for all available options.
+查看 [`.env.local.example`](.env.local.example) 获取所有可用选项。
 
-## Tech Stack
+## 技术栈
 
-| Component | Technology |
-|-----------|------------|
-| Frontend Framework | [Next.js 16](https://nextjs.org/) with App Router |
-| UI Components | [shadcn/ui](https://ui.shadcn.com/) + [Radix UI](https://www.radix-ui.com/) |
-| Styling | [Tailwind CSS](https://tailwindcss.com/) |
-| Desktop Runtime | [Tauri v2](https://tauri.app/) |
-| State Management | [Zustand](https://zustand-demo.pmnd.rs/) + [Redux Toolkit](https://redux-toolkit.js.org/) |
-| Local Database | [Dexie.js](https://dexie.org/) (IndexedDB wrapper) |
-| Flow Diagrams | [@xyflow/react](https://reactflow.dev/) |
-| Markdown Rendering | [react-markdown](https://github.com/remarkjs/react-markdown) |
+| 组件                 | 技术                                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------------- |
+| Frontend Framework | 带 App Router 的 [Next.js 16](https://nextjs.org/)                                          |
+| UI Components      | [shadcn/ui](https://ui.shadcn.com/) + [Radix UI](https://www.radix-ui.com/)               |
+| Styling            | [Tailwind CSS](https://tailwindcss.com/)                                                  |
+| Desktop Runtime    | [Tauri v2](https://tauri.app/)                                                            |
+| State Management   | [Zustand](https://zustand-demo.pmnd.rs/) + [Redux Toolkit](https://redux-toolkit.js.org/) |
+| Local Database     | [Dexie.js](https://dexie.org/)（IndexedDB wrapper）                                         |
+| Flow Diagrams      | [@xyflow/react](https://reactflow.dev/)                                                   |
+| Markdown Rendering | [react-markdown](https://github.com/remarkjs/react-markdown)                              |
 
-## Building for Production
+## 生产构建
 
-### Prerequisites
+### 前置条件
 
-- **Node.js** 20+
-- **Rust** (latest stable) — install from [rustup.rs](https://rustup.rs/)
-- **Platform-specific dependencies**:
-  - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
-  - **Windows**: Microsoft C++ Build Tools
-  - **Linux**: See [Tauri Prerequisites](https://tauri.app/v2/guides/prerequisites/)
+* **Node.js** 20+
+* **Rust**（最新稳定版）— 从 [rustup.rs](https://rustup.rs/) 安装
+* **平台特定依赖**：
 
-### Build Commands
+  * **Windows**：Microsoft C++ Build Tools
+  * **Linux**：查看 [Tauri Prerequisites](https://tauri.app/v2/guides/prerequisites/)
+
+### 构建命令
 
 ```bash
-# macOS (Universal Binary)
-npm run tauri:build -- --target universal-apple-darwin
 
 # Windows
 npm run tauri:build -- --target x86_64-pc-windows-msvc
@@ -171,19 +169,19 @@ npm run tauri:build -- --target x86_64-unknown-linux-gnu
 npm run tauri ios build
 ```
 
-## Auto-Updates
+## 自动更新
 
-The desktop app includes automatic update checking:
+桌面应用包含自动更新检查：
 
-- **Check on startup**: Looks for new releases from GitHub
-- **Background downloads**: Downloads updates silently
-- **User prompt**: Asks before installing updates
+* **启动时检查**：从 GitHub 查找新的 releases
+* **后台下载**：静默下载 updates
+* **用户提示**：安装 updates 前询问用户
 
-Configure update behavior in `src-tauri/tauri.conf.json`.
+在 `src-tauri/tauri.conf.json` 中配置 update 行为。
 
-## Troubleshooting
+## 故障排查
 
-### Web UI won't start
+### Web UI 无法启动
 
 ```bash
 # Clear Next.js cache
@@ -192,7 +190,7 @@ npm install
 npm run dev
 ```
 
-### Connection to backend fails
+### 后端连接失败
 
 ```bash
 # Verify backend is running
@@ -202,44 +200,5 @@ curl http://localhost:8080/health
 cat .env.local | grep NEXT_PUBLIC_API_URL
 ```
 
-### Tauri build fails
 
-```bash
-# Update Rust toolchain
-rustup update
 
-# Clean build artifacts
-cd src-tauri && cargo clean && cd ..
-npm run tauri:build
-```
-
-### macOS: "App is damaged" error
-
-The app is not signed with an Apple Developer certificate. Allow it via:
-
-```bash
-# Remove quarantine attribute
-xattr -cr /Applications/Shannon.app
-```
-
-Or: System Preferences → Privacy & Security → Open Anyway
-
-## Contributing
-
-See the main [CONTRIBUTING.md](../CONTRIBUTING.md) for development guidelines.
-
-For desktop-specific contributions:
-1. Follow the existing component patterns in `components/`
-2. Use shadcn/ui components where applicable
-3. Test both web mode (`npm run dev`) and native mode (`npm run tauri:dev`)
-
-## Additional Resources
-
-- [Tauri Documentation](https://tauri.app/v2/guides/)
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Shannon API Documentation](../docs/)
-- [Release Process](../RELEASING.md)
-
-## License
-
-MIT License — see [LICENSE](../LICENSE) for details.
