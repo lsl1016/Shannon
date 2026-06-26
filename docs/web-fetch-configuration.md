@@ -1,42 +1,49 @@
-# Web Fetch Capabilities & Configuration
+# Web 获取能力与配置
 
-Shannon provides a comprehensive suite of web fetch tools designed to extract content from URLs with varying depths and precision. From single-page markdown extraction to full-site crawling, these tools power the agent's research capabilities.
+Shannon 提供了一整套全面的 Web 获取工具，旨在以不同深度和精度从 URL 中提取内容。从单页 markdown 提取到整站爬取，这些工具为 agent 的研究能力提供支撑。
 
-## Tools Overview
+## 工具概览
 
-Shannon offers three specialized tools for different fetching needs:
+Shannon 针对不同获取需求提供了三种专用工具：
 
-### 1. **web_fetch** (Single Page)
-Precise, fast extraction of a single URL's content.
-- **Use Case**: Reading a specific article, documentation page, or news item.
-- **Capabilities**: Markdown conversion, metadata extraction.
-- **Best for**: Targeted reading when the URL is already known methods.
+### 1. **web_fetch**（单页面）
 
-### 2. **web_subpage_fetch** (Targeted Multi-page)
-Intelligent discovery and fetching of relevant subpages from a domain.
-- **Use Case**: Company research (About, Team, Product), gathering documentation sections.
-- **Mechanism**: **Map + Scrape**. First discovers all links, scores them by relevance to your query/target paths, and fetches the top N pages.
-- **Best for**: Known domains where you need specific high-value sections (e.g., "Find pricing and team info for OpenAI").
+对单个 URL 的内容进行精准、快速提取。
 
-### 3. **web_crawl** (Deep Exploration)
-Recursive crawling to discover structure and content from scratch.
-- **Use Case**: Auditing a website, reading all blog posts, exploring an unknown domain.
-- **Mechanism**: **Firecrawl Crawl API**. Automatically navigates links to find content (Async operation).
-- **Best for**: Broad information gathering and "blind" exploration.
+* **使用场景**：阅读特定文章、文档页面或新闻条目。
+* **能力**：Markdown 转换、元数据提取。
+* **最适合**：URL 已知时的定向阅读方法。
 
-#### Relevance Scoring Logic (`web_subpage_fetch`)
-When selecting which pages to fetch from a simplified list of possibilities, the tool calculates a relevance score (0.0-1.0) based on:
+### 2. **web_subpage_fetch**（定向多页面）
 
-1. **Path Matching (High Weight)**: Exact or partial matches with your `target_paths` (e.g. `/team` matches `/our-team`).
-2. **Keyword Presence (Medium Weight)**: Presence of standard business keywords (about, pricing, docs, etc.) in the URL.
-3. **URL Depth (Low Weight)**: Shallower URLs are preferred (e.g. `domain.com/about` > `domain.com/a/b/about`).
-4. **URL Length (Tie-breaker)**: Shorter, cleaner URLs are slightly boosted.
+从某个域名下智能发现并获取相关子页面。
+
+* **使用场景**：公司研究（About、Team、Product）、收集文档章节。
+* **机制**：**Map + Scrape**。首先发现所有链接，根据你的查询/目标路径对相关性进行评分，并获取排名前 N 的页面。
+* **最适合**：已知域名下需要特定高价值章节的场景（例如，“查找 OpenAI 的 pricing 和 team 信息”）。
+
+### 3. **web_crawl**（深度探索）
+
+递归爬取，从零开始发现结构和内容。
+
+* **使用场景**：审计一个网站、阅读所有博客文章、探索未知域名。
+* **机制**：**Firecrawl Crawl API**。自动沿链接导航以查找内容（异步操作）。
+* **最适合**：广泛信息收集和“盲式”探索。
+
+#### 相关性评分逻辑（`web_subpage_fetch`）
+
+当从简化后的候选列表中选择要获取的页面时，该工具会基于以下因素计算相关性评分（0.0-1.0）：
+
+1. **路径匹配（高权重）**：与你的 `target_paths` 精确或部分匹配（例如 `/team` 匹配 `/our-team`）。
+2. **关键词存在（中等权重）**：URL 中存在标准业务关键词（about、pricing、docs 等）。
+3. **URL 深度（低权重）**：优先选择更浅层的 URL（例如 `domain.com/about` > `domain.com/a/b/about`）。
+4. **URL 长度（平局打破项）**：更短、更清晰的 URL 会获得轻微加分。
 
 ---
 
-## LLM Decision Logic
+## LLM 决策逻辑
 
-How should an LLM decide which tool to use?
+LLM 应该如何决定使用哪个工具？
 
 ```mermaid
 flowchart TD
@@ -54,54 +61,63 @@ flowchart TD
 
 ---
 
-## Configuration
+## 配置
 
-Configure your preferred provider through environment variables.
+通过环境变量配置你的首选提供商。
 
-### Primary Provider: Firecrawl (Highly Recommended)
-Firecrawl is the only provider that supports the full suite of tools (`web_subpage_fetch` and `web_crawl`). It offers superior markdown conversion and handling of dynamic JS content.
+### 主要提供商：Firecrawl（强烈推荐）
+
+Firecrawl 是唯一支持完整工具套件（`web_subpage_fetch` 和 `web_crawl`）的提供商。它提供更好的 markdown 转换能力，并能处理动态 JS 内容。
 
 ```bash
 export WEB_FETCH_PROVIDER=firecrawl
 export FIRECRAWL_API_KEY=your_api_key_here
 ```
-- **Get API Key**: [firecrawl.dev](https://firecrawl.dev)
-- **Features**: Map (link discovery), Scrape (content), Crawl (recursive)
-- **Required for**: Deep Research workflows
 
-### Secondary Provider: Exa (Fallback)
-Good for semantic content extraction but has limited multi-page capabilities.
+* **获取 API Key**：[firecrawl.dev](https://firecrawl.dev)
+* **特性**：Map（链接发现）、Scrape（内容）、Crawl（递归）
+* **必需场景**：Deep Research 工作流
+
+### 次级提供商：Exa（回退）
+
+适合语义内容提取，但多页面能力有限。
+
 ```bash
 export WEB_FETCH_PROVIDER=exa
 export EXA_API_KEY=your_api_key_here
 ```
-- **Get API Key**: [exa.ai](https://exa.ai)
-- **Limitations**: Does not support `web_crawl` or `web_subpage_fetch` (Map mode).
 
-### Basic Provider: Python (Default Fallback)
-Uses standard libraries (`BeautifulSoup`, `trafilatura`) for basic static HTML extraction.
+* **获取 API Key**：[exa.ai](https://exa.ai)
+* **限制**：不支持 `web_crawl` 或 `web_subpage_fetch`（Map 模式）。
+
+### 基础提供商：Python（默认回退）
+
+使用标准库（`BeautifulSoup`、`trafilatura`）进行基础静态 HTML 提取。
+
 ```bash
 export WEB_FETCH_PROVIDER=python
 ```
-- **Pros**: Free, fast, no API key required.
-- **Cons**: Cannot handle JavaScript rendering, no Map/Crawl capabilities.
+
+* **优点**：免费、快速、不需要 API key。
+* **缺点**：无法处理 JavaScript 渲染，没有 Map/Crawl 能力。
 
 ---
 
-## Tool Usage Guide
+## 工具使用指南
 
-### When to use which tool?
+### 什么时候使用哪个工具？
 
-| Scenario | Recommended Tool | Why? |
-|----------|------------------|------|
-| "Read this article" | `web_fetch` | Fast, cheap, precise. |
-| "Research OpenAI's team and pricing" | `web_subpage_fetch` | Intelligently finds `/team`, `/pricing` and fetches them. |
-| "Audit this entire website" | `web_crawl` | Recursively finds all pages without manual guessing. |
-| "Find all blog posts on this site" | `web_crawl` | Great for high-recall discovery. |
+| 场景                                   | 推荐工具                | 原因                             |
+| ------------------------------------ | ------------------- | ------------------------------ |
+| "Read this article"                  | `web_fetch`         | 快速、便宜、精准。                      |
+| "Research OpenAI's team and pricing" | `web_subpage_fetch` | 智能查找 `/team`、`/pricing` 并获取它们。 |
+| "Audit this entire website"          | `web_crawl`         | 无需手动猜测，递归查找所有页面。               |
+| "Find all blog posts on this site"   | `web_crawl`         | 非常适合高召回发现。                     |
 
-### Example Usage (for Agents)
+### 示例用法（面向 Agents）
 
 #### `web_subpage_fetch`
+
 ```python
 # Researching a company
 {
@@ -112,6 +128,7 @@ export WEB_FETCH_PROVIDER=python
 ```
 
 #### `web_crawl`
+
 ```python
 # Exploring an unknown startup
 {
@@ -120,21 +137,22 @@ export WEB_FETCH_PROVIDER=python
 }
 ```
 
-### Response Format
+### 响应格式
 
-All fetch tools return a standardized object:
-- `url`: The source URL
-- `title`: Page title
-- `content`: Cleaned markdown content
-- `pages_fetched`: Number of pages included (1 for web_fetch)
-- `method`: The underlying method used (e.g., `firecrawl_map_scrape`, `python_requests`)
-- `metadata`: Additional details (total crawled, unique pages, etc.)
+所有获取工具都会返回一个标准化对象：
+
+* `url`：来源 URL
+* `title`：页面标题
+* `content`：清理后的 markdown 内容
+* `pages_fetched`：包含的页面数量（web_fetch 为 1）
+* `method`：底层使用的方法（例如 `firecrawl_map_scrape`、`python_requests`）
+* `metadata`：附加详情（总爬取数、唯一页面数等）
 
 ---
 
-## Performance Tuning
+## 性能调优
 
-You can fine-tune the fetcher performance via environment variables:
+你可以通过环境变量微调 fetcher 性能：
 
 ```bash
 # Concurrency for batch scraping (web_subpage_fetch)
@@ -154,16 +172,19 @@ WEB_FETCH_MAP_TIMEOUT=15
 WEB_FETCH_CRAWL_TIMEOUT=120
 ```
 
-## Troubleshooting
+## 故障排查
 
-1. **`web_crawl` returns "requires Firecrawl API"**:
-   - Ensure `FIRECRAWL_API_KEY` is set in your `.env`.
-   - Verify the key is valid and has credits.
+1. **`web_crawl` 返回 "requires Firecrawl API"**：
 
-2. **Fetching dynamic sites (React/Vue/Angular) returns empty**:
-   - Switch to `WEB_FETCH_PROVIDER=firecrawl` or `exa`.
-   - The default `python` provider cannot execute JavaScript.
+   * 确保 `FIRECRAWL_API_KEY` 已在你的 `.env` 中设置。
+   * 验证 key 有效并且有 credits。
 
-3. **Rate Limits (429 Errors)**:
-   - The tools handle retries automatically.
-   - If frequent, check your provider's dashboard usage or lower `WEB_FETCH_BATCH_CONCURRENCY`.
+2. **获取动态站点（React/Vue/Angular）返回空内容**：
+
+   * 切换到 `WEB_FETCH_PROVIDER=firecrawl` 或 `exa`。
+   * 默认 `python` 提供商无法执行 JavaScript。
+
+3. **速率限制（429 错误）**：
+
+   * 工具会自动处理重试。
+   * 如果频繁出现，请检查你的提供商控制台用量，或降低 `WEB_FETCH_BATCH_CONCURRENCY`。
