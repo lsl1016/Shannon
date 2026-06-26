@@ -1,79 +1,98 @@
-# Web Search Configuration
+# Web 搜索配置
 
-The Shannon platform supports multiple web search providers to deliver real-time information for AI agents. Configure your preferred provider through environment variables.
+Shannon 平台支持多个 Web 搜索提供商，为 AI agents 提供实时信息。通过环境变量配置你首选的提供商。
 
-## Supported Providers
+## 支持的提供商
 
-### 1. **Google Custom Search** (Most Widely Used)
-Industry-standard search with comprehensive coverage and rich results.
+### 1. **Google Custom Search**（使用最广泛）
+
+行业标准搜索，覆盖范围全面，结果丰富。
+
 ```bash
 export WEB_SEARCH_PROVIDER=google
 export GOOGLE_SEARCH_API_KEY=your_api_key_here
 export GOOGLE_SEARCH_ENGINE_ID=your_search_engine_id_here
 ```
-- Get API key at: https://console.cloud.google.com/apis/credentials
-- Create search engine at: https://programmablesearchengine.google.com/
-- Free tier: 100 queries/day, then $5 per 1000 queries
-- Rate limit: 100 queries per 100 seconds
 
-### 2. **Serper** (Best Value for Developers)
-Fast, affordable Google search results API with simple pricing.
+* 在此获取 API key：[https://console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
+* 在此创建搜索引擎：[https://programmablesearchengine.google.com/](https://programmablesearchengine.google.com/)
+* 免费层级：100 次查询/天，之后每 1000 次查询 $5
+* 速率限制：每 100 秒 100 次查询
+
+### 2. **Serper**（对开发者最具性价比）
+
+快速、实惠的 Google 搜索结果 API，定价简单。
+
 ```bash
 export WEB_SEARCH_PROVIDER=serper
 export SERPER_API_KEY=your_api_key_here
 ```
-- Get API key at: https://serper.dev
-- Free tier: 2500 queries on signup
-- Pricing: Starting at $50 for 50k queries ($1.00/1k)
-- Rate limit: 300 queries/second
 
-### 3. **SerpAPI** (Robust Google Search API)
-Reliable API for Google Search, Maps, News, and more. Handles proxies and captchas effectively.
+* 在此获取 API key：[https://serper.dev](https://serper.dev)
+* 免费层级：注册时赠送 2500 次查询
+* 定价：50k 次查询起价 $50（$1.00/1k）
+* 速率限制：300 次查询/秒
+
+### 3. **SerpAPI**（稳健的 Google Search API）
+
+可靠的 Google Search、Maps、News 等 API。能有效处理代理和验证码。
+
 ```bash
 export WEB_SEARCH_PROVIDER=serpapi
 export SERPAPI_API_KEY=your_api_key_here
 ```
-- Get API key at: https://serpapi.com
-- Free tier: 100 searches/month
-- Pricing: Starting at $50 for 5k searches
-- Rate Limit: Flexible based on plan
 
-### 4. **Bing Search API** (Enterprise Choice)
-Microsoft's search API with Azure integration.
+* 在此获取 API key：[https://serpapi.com](https://serpapi.com)
+* 免费层级：100 次搜索/月
+* 定价：5k 次搜索起价 $50
+* 速率限制：根据套餐灵活调整
+
+### 4. **Bing Search API**（企业选择）
+
+Microsoft 的搜索 API，集成 Azure。
+
 ```bash
 export WEB_SEARCH_PROVIDER=bing
 export BING_API_KEY=your_api_key_here
 ```
-- Get API key at: https://azure.microsoft.com/en-us/services/cognitive-services/bing-web-search-api/
-- Free tier: 1000 queries/month
-- Pricing: $3 per 1000 queries for S1 tier
-- Note: Bing Search APIs retiring August 11, 2025 - consider migration plans
 
-### 5. **Exa** (Fastest and Most Accurate Web Search API for AI)
-Neural search with semantic understanding, optimized for AI applications.
+* 在此获取 API key：[https://azure.microsoft.com/en-us/services/cognitive-services/bing-web-search-api/](https://azure.microsoft.com/en-us/services/cognitive-services/bing-web-search-api/)
+* 免费层级：1000 次查询/月
+* 定价：S1 层级每 1000 次查询 $3
+* 注意：Bing Search APIs 将于 2025 年 8 月 11 日退役，请考虑迁移计划
+
+### 5. **Exa**（面向 AI 的最快且最准确的 Web Search API）
+
+具备语义理解的神经搜索，针对 AI 应用优化。
+
 ```bash
 export WEB_SEARCH_PROVIDER=exa
 export EXA_API_KEY=your_api_key_here
 ```
-- Get API key at: https://exa.ai
-- Features: Semantic search, autoprompting, highlights extraction
-- Free tier: 1000 queries/month
-- Pricing: $0.001 per search
 
-### 6. **Firecrawl** (Search + Content Extraction)
-Web search with integrated scraping and markdown extraction.
+* 在此获取 API key：[https://exa.ai](https://exa.ai)
+* 特性：语义搜索、自动提示、摘要高亮提取
+* 免费层级：1000 次查询/月
+* 定价：每次搜索 $0.001
+
+### 6. **Firecrawl**（搜索 + 内容提取）
+
+集成爬取和 markdown 提取的 Web 搜索。
+
 ```bash
 export WEB_SEARCH_PROVIDER=firecrawl
 export FIRECRAWL_API_KEY=your_api_key_here
 ```
-- Get API key at: https://firecrawl.dev
-- Features: Full content extraction, markdown formatting
-- Free tier: Limited alpha access
-- Pricing: Variable based on scraping depth
 
-## Docker Compose Configuration
+* 在此获取 API key：[https://firecrawl.dev](https://firecrawl.dev)
+* 特性：完整内容提取、markdown 格式化
+* 免费层级：有限 alpha 访问
+* 定价：根据爬取深度变化
 
-Add to your `deploy/compose/.env` file:
+## Docker Compose 配置
+
+添加到你的 `deploy/compose/.env` 文件：
+
 ```env
 # Web Search Configuration (choose one provider)
 WEB_SEARCH_PROVIDER=google
@@ -103,7 +122,8 @@ GOOGLE_SEARCH_ENGINE_ID=your_search_engine_id_here
 # FIRECRAWL_API_KEY=your_firecrawl_api_key_here
 ```
 
-The environment variables are already configured in `deploy/compose/docker-compose.yml`:
+环境变量已经在 `deploy/compose/docker-compose.yml` 中配置：
+
 ```yaml
 llm-service:
   environment:
@@ -117,9 +137,10 @@ llm-service:
     - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
 ```
 
-## Fallback Behavior
+## 回退行为
 
-If the configured provider is not available (missing API key or configuration), the system automatically tries other providers in this priority order:
+如果配置的提供商不可用（缺少 API key 或配置），系统会按以下优先级自动尝试其他提供商：
+
 1. Google Custom Search
 2. Serper
 3. SerpAPI
@@ -127,21 +148,23 @@ If the configured provider is not available (missing API key or configuration), 
 5. Exa
 6. Firecrawl
 
-If no provider is configured, web search will be disabled but the system continues to function.
+如果没有配置任何提供商，Web 搜索将被禁用，但系统会继续运行。
 
-## Response Format
+## 响应格式
 
-All providers return normalized results with these fields:
-- `title`: Result title
-- `snippet`: Short text preview
-- `content`: Extended content (when available)
-- `url`: Result URL
-- `source`: Provider name
-- Additional provider-specific fields (score, date, highlights, etc.)
+所有提供商都会返回带有以下字段的标准化结果：
 
-## Testing Your Configuration
+* `title`：结果标题
+* `snippet`：短文本预览
+* `content`：扩展内容（可用时）
+* `url`：结果 URL
+* `source`：提供商名称
+* 其他提供商特定字段（score、date、highlights 等）
 
-Test your web search configuration:
+## 测试你的配置
+
+测试你的 Web 搜索配置：
+
 ```bash
 curl -X POST http://localhost:8000/tools/execute \
   -H "Content-Type: application/json" \
@@ -154,54 +177,58 @@ curl -X POST http://localhost:8000/tools/execute \
   }'
 ```
 
-## Provider Comparison
+## 提供商对比
 
-| Provider | Best For | Pricing (per 1k queries) | Rate Limit | Content Depth |
-|----------|----------|---------------------------|------------|---------------|
-| **Google** | General search, comprehensive results | $5 after free tier | 100/100s | Snippets + metadata |
-| **Serper** | High-volume, cost-effective | $0.30-$1.00 | 300/s | Snippets + knowledge graph |
-| **SerpAPI** | Scraping reliability & variety | $10 | Varies | Snippets + rich result data |
-| **Bing** | Enterprise, Azure integration | $3 | Varies by tier | Snippets |
-| **Exa** | AI agents, semantic search | $1 | Standard | Full text + highlights |
-| **Firecrawl** | Content extraction | Variable | Limited | Full markdown content |
+| 提供商           | 最适合            | 定价（每 1k 次查询） | 速率限制     | 内容深度           |
+| ------------- | -------------- | ------------ | -------- | -------------- |
+| **Google**    | 通用搜索、全面结果      | 免费层级后 $5     | 100/100s | 摘要 + 元数据       |
+| **Serper**    | 高流量、成本效益高      | $0.30-$1.00  | 300/s    | 摘要 + 知识图谱      |
+| **SerpAPI**   | 爬取可靠性和多样性      | $10          | 不同套餐不同   | 摘要 + 丰富结果数据    |
+| **Bing**      | 企业、Azure 集成    | $3           | 根据层级变化   | 摘要             |
+| **Exa**       | AI agents、语义搜索 | $1           | 标准       | 全文 + 高亮        |
+| **Firecrawl** | 内容提取           | 可变           | 有限       | 完整 markdown 内容 |
 
-## Setting Up Google Custom Search
+## 设置 Google Custom Search
 
-1. **Create a Custom Search Engine:**
-   - Go to https://programmablesearchengine.google.com/
-   - Click "Add" to create a new search engine
-   - Configure to search the entire web
-   - Note your Search Engine ID
+1. **创建 Custom Search Engine：**
 
-2. **Get API Key:**
-   - Go to https://console.cloud.google.com/
-   - Create a new project or select existing
-   - Enable "Custom Search API"
-   - Create credentials (API Key)
-   - Restrict key to Custom Search API
+   * 前往 [https://programmablesearchengine.google.com/](https://programmablesearchengine.google.com/)
+   * 点击 "Add" 创建新的搜索引擎
+   * 配置为搜索整个 Web
+   * 记录你的 Search Engine ID
 
-3. **Configure Shannon:**
+2. **获取 API Key：**
+
+   * 前往 [https://console.cloud.google.com/](https://console.cloud.google.com/)
+   * 创建新项目或选择已有项目
+   * 启用 "Custom Search API"
+   * 创建凭据（API Key）
+   * 将 key 限制为 Custom Search API
+
+3. **配置 Shannon：**
+
    ```bash
    export GOOGLE_SEARCH_API_KEY=your_key
    export GOOGLE_SEARCH_ENGINE_ID=your_engine_id
    export WEB_SEARCH_PROVIDER=google
    ```
 
-## Best Practices
+## 最佳实践
 
-1. **Start with Google or Serper** for broad compatibility and reliable results
-2. **Use Exa** for AI-specific semantic search needs
-3. **Configure multiple providers** for redundancy
-4. **Monitor usage** to stay within free tiers or budget
-5. **Cache results** when possible to reduce API calls
+1. **从 Google 或 Serper 开始**，以获得广泛兼容性和可靠结果
+2. **使用 Exa** 满足 AI 特定的语义搜索需求
+3. **配置多个提供商** 以实现冗余
+4. **监控用量**，保持在免费层级或预算范围内
+5. **尽可能缓存结果**，减少 API 调用
 
-## Troubleshooting
+## 故障排查
 
-If web search isn't working:
-1. Check environment variables are set correctly
-2. Verify API keys are valid and have sufficient quota
-3. Check logs: `docker compose logs llm-service`
-4. Test provider directly with curl to isolate issues
-5. Ensure network connectivity from your deployment environment
+如果 Web 搜索无法工作：
 
-For provider-specific issues, consult their respective documentation and status pages.
+1. 检查环境变量是否正确设置
+2. 验证 API keys 是否有效且有足够配额
+3. 检查日志：`docker compose logs llm-service`
+4. 使用 curl 直接测试提供商以隔离问题
+5. 确保部署环境具备网络连接
+
+对于提供商特定问题，请查阅各自的文档和状态页。
