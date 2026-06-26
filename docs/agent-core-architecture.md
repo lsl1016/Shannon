@@ -1,19 +1,19 @@
-# Shannon Agent Core - Architecture Documentation
+# Shannon Agent Core - 架构文档
 
-## Overview
+## 概览
 
-The Shannon Agent Core is a high-performance Rust implementation of the agent execution layer, providing secure sandboxing, efficient memory management, and intelligent tool orchestration. This document describes the modernized architecture following 2025 best practices.
+Shannon Agent Core 是 agent 执行层的高性能 Rust 实现，提供安全沙箱、高效内存管理和智能工具编排。本文档描述了遵循 2025 年最佳实践的现代化架构。
 
-## Architecture Principles
+## 架构原则
 
-1. **Separation of Concerns**: Intelligence (Python) vs Execution (Rust)
-2. **Zero-Copy Operations**: Minimize string cloning and memory allocations
-3. **Modern Concurrency**: Use `OnceLock` and `std::sync::Once` instead of `lazy_static`
-4. **Comprehensive Error Handling**: `Result<T>` types with structured errors via `thiserror`
-5. **Observable Systems**: OpenTelemetry tracing and Prometheus metrics
-6. **Security First**: WASI sandboxing for untrusted code execution
+1. **关注点分离**：智能（Python）与执行（Rust）
+2. **零拷贝操作**：尽量减少字符串克隆和内存分配
+3. **现代并发**：使用 `OnceLock` 和 `std::sync::Once`，而不是 `lazy_static`
+4. **全面错误处理**：通过 `thiserror` 使用带结构化错误的 `Result<T>` 类型
+5. **可观测系统**：OpenTelemetry tracing 和 Prometheus metrics
+6. **安全优先**：用于不可信代码执行的 WASI 沙箱
 
-## Component Architecture
+## 组件架构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -25,6 +25,7 @@ The Shannon Agent Core is a high-performance Rust implementation of the agent ex
 │  └──────────────┘  └──────────────┘  └──────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
 │                    Tool Execution Layer                     │
+│ 工具执行层 │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
 │  │   Tool   │  │   Tool   │  │   Tool   │  │   WASI   │  │
 │  │ Registry │  │   Cache  │  │ Executor │  │  Sandbox │  │
@@ -38,83 +39,92 @@ The Shannon Agent Core is a high-performance Rust implementation of the agent ex
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Core Components
+## 核心组件
 
-### 1. Enforcement Gateway (`src/enforcement.rs`)
+### 1. Enforcement Gateway（`src/enforcement.rs`）
 
-Uniform per-request policy enforcement for every code path:
+对每条代码路径进行统一的逐请求策略强制执行：
 
-- Timeouts: hard wall clock limit per request
-- Token ceiling: reject requests with excessive estimated tokens
-- Rate limiting: simple per-key token bucket
-- Circuit breaker: rolling error window per key
-  - Optional distributed limiter: set `ENFORCE_RATE_REDIS_URL` to enable a Redis-backed token bucket shared across instances.
+* 超时：每个请求的硬性墙钟时间限制
+* Token 上限：拒绝估算 tokens 过高的请求
+* 速率限制：简单的按 key token bucket
+* 熔断器：按 key 的滚动错误窗口
 
-Configuration lives under `enforcement` in `config/agent.yaml` with environment variable overrides (`ENFORCE_*`).
+  * 可选分布式限流器：设置 `ENFORCE_RATE_REDIS_URL` 以启用跨实例共享的 Redis-backed token bucket。
 
-### 2. Tool System
+配置位于 `config/agent.yaml` 中的 `enforcement` 下，并支持环境变量覆盖（`ENFORCE_*`）。
 
-#### Tool Registry (`src/tool_registry.rs`)
-- Centralized tool capability management
-- Discovery API with filtering and relevance scoring
-- Metadata including schemas, permissions, and TTL
+### 2. 工具系统
 
-#### Tool Cache (`src/tool_cache.rs`)
-- LRU caching with configurable TTL
-- Deterministic cache key generation
-- Automatic expiration and sweeping
-- Comprehensive statistics tracking
+#### Tool Registry（`src/tool_registry.rs`）
 
-#### Tool Executor (`src/tools.rs`)
-- Unified interface for tool execution
-- Integration with Python LLM service
-- WASI sandbox routing for code execution
-- Automatic result caching
+* 集中式工具能力管理
+* 带过滤和相关性评分的发现 API
+* 包含 schemas、permissions 和 TTL 的 metadata
 
-### 3. WASI Sandbox (`src/wasi_sandbox.rs`)
+#### Tool Cache（`src/tool_cache.rs`）
 
-Secure WebAssembly execution environment with:
-- Filesystem isolation (read-only `/tmp` access)
-- Memory limits (configurable, default 256MB)
-- Execution timeouts (default 30s)
-- Fuel metering for CPU usage control
+* 带可配置 TTL 的 LRU 缓存
+* 确定性 cache key 生成
+* 自动过期和清理
+* 全面的统计信息跟踪
 
-### 4. Memory Management (`src/memory.rs`)
+#### Tool Executor（`src/tools.rs`）
 
-Efficient memory pool with:
-- Pre-allocated memory blocks
-- Automatic garbage collection
-- Pressure-based rejection
-- Thread-safe allocation/deallocation
+* 统一的工具执行接口
+* 与 Python LLM service 集成
+* 用于代码执行的 WASI 沙箱路由
+* 自动结果缓存
 
-### 5. Configuration (`src/config.rs`)
+### 3. WASI Sandbox（`src/wasi_sandbox.rs`）
 
-Centralized configuration management:
-- YAML-based configuration files
-- Environment variable overrides (including enforcement: `ENFORCE_*`)
-- Hot-reload support (future)
-- Structured configuration types
+安全的 WebAssembly 执行环境，具备：
 
-### 6. Observability
+* 文件系统隔离（只读 `/tmp` 访问）
+* 内存限制（可配置，默认 256MB）
+* 执行超时（默认 30s）
+* 用于 CPU 使用控制的 fuel metering
 
-#### Tracing (`src/tracing.rs`)
-- OpenTelemetry integration
-- W3C trace context propagation
-- Active span context injection
-- Cross-service tracing support
+### 4. 内存管理（`src/memory.rs`）
 
-#### Metrics (`src/metrics.rs`)
-- Prometheus metrics export
-- Tool execution metrics
-- Memory usage tracking
-- Cache performance stats
-- Enforcement metrics: drops by reason, allowed outcomes
+高效内存池，具备：
 
-## API Contracts
+* 预分配内存块
+* 自动垃圾回收
+* 基于压力的拒绝
+* 线程安全的分配/释放
+
+### 5. 配置（`src/config.rs`）
+
+集中式配置管理：
+
+* 基于 YAML 的配置文件
+* 环境变量覆盖（包括 enforcement：`ENFORCE_*`）
+* 热重载支持（未来）
+* 结构化配置类型
+
+### 6. 可观测性
+
+#### Tracing（`src/tracing.rs`）
+
+* OpenTelemetry 集成
+* W3C trace context 传播
+* 活跃 span context 注入
+* 跨服务 tracing 支持
+
+#### Metrics（`src/metrics.rs`）
+
+* Prometheus metrics 导出
+* 工具执行 metrics
+* 内存使用跟踪
+* 缓存性能统计
+* Enforcement metrics：按原因统计 drops、允许结果统计
+
+## API 契约
 
 ### gRPC API
 
-The agent exposes the following gRPC services:
+agent 暴露以下 gRPC 服务：
 
 ```protobuf
 service AgentService {
@@ -127,11 +137,12 @@ service AgentService {
 }
 ```
 
-### Python-Rust Contract
+### Python-Rust 契约
 
-The Rust agent communicates with Python LLM service via HTTP:
+Rust agent 通过 HTTP 与 Python LLM service 通信：
 
-#### Tool Selection
+#### 工具选择
+
 ```
 POST /tools/select
 {
@@ -142,7 +153,8 @@ POST /tools/select
 }
 ```
 
-#### Tool Execution
+#### 工具执行
+
 ```
 POST /tools/execute
 {
@@ -151,7 +163,8 @@ POST /tools/execute
 }
 ```
 
-#### Task Analysis
+#### 任务分析
+
 ```
 POST /analyze_task
 {
@@ -160,9 +173,9 @@ POST /analyze_task
 }
 ```
 
-## Error Handling
+## 错误处理
 
-Comprehensive error taxonomy using `thiserror`:
+使用 `thiserror` 的全面错误分类：
 
 ```rust
 pub enum AgentError {
@@ -176,41 +189,50 @@ pub enum AgentError {
 }
 ```
 
-## Performance Optimizations
+## 性能优化
 
-### 1. Zero-Copy Strings
-Using `Cow<str>` for string handling to avoid unnecessary allocations:
+### 1. 零拷贝字符串
+
+使用 `Cow<str>` 进行字符串处理，以避免不必要的分配：
+
 ```rust
 pub fn process_text<'a>(input: &'a str) -> Cow<'a, str>
 ```
 
-### 2. Lazy Initialization
-Modern `OnceLock` pattern for metrics:
+### 2. 惰性初始化
+
+用于 metrics 的现代 `OnceLock` 模式：
+
 ```rust
 static METRICS: OnceLock<HashMap<String, Counter>> = OnceLock::new();
 ```
 
-### 3. Parallel Tool Execution
-Concurrent tool execution with tokio:
+### 3. 并行工具执行
+
+使用 tokio 进行并发工具执行：
+
 ```rust
 let futures = tools.iter().map(|tool| executor.execute_tool(tool));
 let results = futures::future::join_all(futures).await;
 ```
 
-### 4. Cache-First Architecture
-- Tool result caching with configurable TTL
-- LLM response caching for simple queries
-- Discovery result caching
+### 4. 缓存优先架构
 
-## Security Model
+* 带可配置 TTL 的工具结果缓存
+* 简单 query 的 LLM 响应缓存
+* 发现结果缓存
 
-### WASI Sandbox Isolation
-- No network access
-- Limited filesystem access (read-only `/tmp`)
-- Memory limits enforced
-- CPU usage controlled via fuel metering
+## 安全模型
 
-### Tool Permission System
+### WASI Sandbox 隔离
+
+* 无网络访问
+* 有限文件系统访问（只读 `/tmp`）
+* 强制内存限制
+* 通过 fuel metering 控制 CPU 使用
+
+### 工具权限系统
+
 ```rust
 pub struct ToolCapability {
     pub required_permissions: Vec<String>,
@@ -219,32 +241,37 @@ pub struct ToolCapability {
 }
 ```
 
-### Input Validation
-- Parameter schema validation
-- Size limits on inputs
-- Timeout protection
+### 输入校验
 
-## Testing Strategy
+* 参数 schema 校验
+* 输入大小限制
+* 超时保护
 
-### Unit Tests
-- Component-level testing
-- Mock dependencies
-- Property-based testing for complex logic
+## 测试策略
 
-### Integration Tests
-- Python-Rust contract validation
-- End-to-end tool execution
-- Cache behavior verification
-- Error handling scenarios
+### 单元测试
 
-### Performance Tests
-- Benchmark critical paths
-- Memory usage profiling
-- Concurrent execution stress tests
+* 组件级测试
+* Mock dependencies
+* 针对复杂逻辑的基于性质的测试
 
-## Deployment
+### 集成测试
+
+* Python-Rust 契约验证
+* 端到端工具执行
+* 缓存行为验证
+* 错误处理场景
+
+### 性能测试
+
+* 关键路径 benchmark
+* 内存使用 profiling
+* 并发执行压力测试
+
+## 部署
 
 ### Docker Container
+
 ```dockerfile
 FROM rust:latest as builder
 WORKDIR /usr/src/app
@@ -267,70 +294,39 @@ EXPOSE 50051
 CMD ["shannon-agent-core"]
 ```
 
-### Configuration
-Environment variables:
-- `RUST_LOG`: Logging level
-- `OTEL_EXPORTER_OTLP_ENDPOINT`: Tracing endpoint
-- `MEMORY_POOL_SIZE_MB`: Memory pool size
-- `WASI_MEMORY_LIMIT_MB`: WASI sandbox memory limit
-- `LLM_SERVICE_URL`: Python LLM service base URL
+### 配置
 
-Note: tool result cache TTL is configured via `tools.cache_ttl_secs` in the agent config (YAML). There is no `TOOL_CACHE_TTL_SECONDS` env override.
+环境变量：
 
-### Health Checks
-- gRPC HealthCheck RPC on port `50051`
-- Metrics endpoint: `:2113/metrics`
+* `RUST_LOG`：日志级别
+* `OTEL_EXPORTER_OTLP_ENDPOINT`：Tracing endpoint
+* `MEMORY_POOL_SIZE_MB`：内存池大小
+* `WASI_MEMORY_LIMIT_MB`：WASI 沙箱内存限制
+* `LLM_SERVICE_URL`：Python LLM service base URL
 
-## Migration Guide
+注意：工具结果 cache TTL 通过 agent config（YAML）中的 `tools.cache_ttl_secs` 配置。不存在 `TOOL_CACHE_TTL_SECONDS` 环境变量覆盖。
 
-### From Legacy Patterns
+### 健康检查
 
-#### Replace `lazy_static!`
-```rust
-// Old
-lazy_static! {
-    static ref METRICS: Mutex<HashMap<String, Counter>> = Mutex::new(HashMap::new());
-}
+* 端口 `50051` 上的 gRPC HealthCheck RPC
+* Metrics endpoint：`:2113/metrics`
 
-// New
-static METRICS: OnceLock<Mutex<HashMap<String, Counter>>> = OnceLock::new();
-```
 
-#### Error Handling
-```rust
-// Old
-let result = operation().unwrap();
+## 未来增强
 
-// New
-let result = operation().context("Failed to perform operation")?;
-```
+1. **WebAssembly Component Model**：支持 WASI Preview 2
+2. **分布式缓存**：用于缓存共享的 Redis 集成
+3. **GPU 加速**：用于 ML 操作的 CUDA/ROCm 支持
+4. **多区域支持**：地理分布式 agent 部署
+5. **高级监控**：自定义 metrics 和 tracing spans
 
-#### String Operations
-```rust
-// Old
-fn process(input: String) -> String
+## 贡献
 
-// New
-fn process(input: &str) -> Cow<str>
-```
+请遵循以下准则：
 
-## Future Enhancements
+1. 提交前使用 `cargo fmt` 和 `cargo clippy`
+2. 为新功能添加测试
+3. 针对 API 变更更新文档
+4. 遵循错误处理最佳实践
+5. 尽量减少不必要的分配
 
-1. **WebAssembly Component Model**: Support for WASI Preview 2
-2. **Distributed Caching**: Redis integration for cache sharing
-3. **GPU Acceleration**: CUDA/ROCm support for ML operations
-4. **Multi-Region Support**: Geo-distributed agent deployment
-5. **Advanced Monitoring**: Custom metrics and tracing spans
-
-## Contributing
-
-Please follow these guidelines:
-1. Use `cargo fmt` and `cargo clippy` before commits
-2. Add tests for new functionality
-3. Update documentation for API changes
-4. Follow error handling best practices
-5. Minimize unnecessary allocations
-
-## License
-
-Copyright 2025 Shannon Project. All rights reserved.
