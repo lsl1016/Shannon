@@ -1,21 +1,23 @@
-# Shannon Agent Core - API Documentation
+# Shannon Agent Core - API 文档
 
-## Table of Contents
+## 目录
+
 1. [gRPC API](#grpc-api)
 2. [Tool Registry API](#tool-registry-api)
 3. [Python Integration API](#python-integration-api)
-4. [Error Codes](#error-codes)
-5. [Examples](#examples)
+4. [错误码](#错误码)
+5. [示例](#示例)
 
 ## gRPC API
 
-The agent core exposes a gRPC service on port 50051.
+agent core 在 50051 端口暴露 gRPC 服务。
 
 ### ExecuteTask
 
-Execute a task via the Agent Core gateway. Modes are advisory and routed to Python; Rust enforces request-level policies (timeouts, rate limits, circuit breakers) uniformly.
+通过 Agent Core gateway 执行任务。Modes 是建议性的，并会路由到 Python；Rust 会统一强制执行请求级策略（超时、速率限制、熔断器）。
 
-**Request:**
+**请求：**
+
 ```protobuf
 message ExecuteTaskRequest {
   TaskMetadata metadata = 1;
@@ -28,7 +30,8 @@ message ExecuteTaskRequest {
 }
 ```
 
-**Response:**
+**响应：**
+
 ```protobuf
 message ExecuteTaskResponse {
   string task_id = 1;
@@ -42,7 +45,8 @@ message ExecuteTaskResponse {
 }
 ```
 
-**Example:**
+**示例：**
+
 ```rust
 let request = ExecuteTaskRequest {
     query: "Calculate the sum of 42 and 58".to_string(),
@@ -56,11 +60,12 @@ println!("Result: {}", response.result);
 
 ### StreamExecuteTask
 
-Execute a task with streaming updates.
+执行任务并返回流式更新。
 
-**Request:** Same as ExecuteTask
+**请求：** 与 ExecuteTask 相同
 
-**Response Stream:**
+**响应流：**
+
 ```protobuf
 message TaskUpdate {
   string task_id = 1;
@@ -74,9 +79,10 @@ message TaskUpdate {
 
 ### DiscoverTools
 
-Discover available tools based on query and filters.
+基于 query 和 filters 发现可用工具。
 
-**Request:**
+**请求：**
+
 ```protobuf
 message DiscoverToolsRequest {
   string query = 1;
@@ -87,7 +93,8 @@ message DiscoverToolsRequest {
 }
 ```
 
-**Response:**
+**响应：**
+
 ```protobuf
 message DiscoverToolsResponse {
   repeated ToolCapability tools = 1;
@@ -112,7 +119,8 @@ message ToolCapability {
 }
 ```
 
-**Example:**
+**示例：**
+
 ```rust
 let request = DiscoverToolsRequest {
     query: "search".to_string(),
@@ -129,16 +137,18 @@ for tool in response.tools {
 
 ### GetToolCapability
 
-Get detailed information about a specific tool.
+获取特定工具的详细信息。
 
-**Request:**
+**请求：**
+
 ```protobuf
 message GetToolCapabilityRequest {
   string tool_id = 1;
 }
 ```
 
-**Response:**
+**响应：**
+
 ```protobuf
 message GetToolCapabilityResponse {
   ToolCapability tool = 1;
@@ -147,9 +157,10 @@ message GetToolCapabilityResponse {
 
 ### GetCapabilities
 
-Get agent capabilities and configuration.
+获取 agent 能力和配置。
 
-**Response:**
+**响应：**
+
 ```protobuf
 message GetCapabilitiesResponse {
   repeated string supported_tools = 1;
@@ -162,9 +173,10 @@ message GetCapabilitiesResponse {
 
 ### HealthCheck
 
-Check agent health status.
+检查 agent 健康状态。
 
-**Response:**
+**响应：**
+
 ```protobuf
 message HealthCheckResponse {
   bool healthy = 1;
@@ -211,13 +223,14 @@ let tool = registry.get_tool("calculator");
 
 ## Python Integration API
 
-The Rust agent communicates with Python LLM service via HTTP REST API.
+Rust agent 通过 HTTP REST API 与 Python LLM service 通信。
 
 ### Tool Selection
 
-**Endpoint:** `POST /tools/select`
+**Endpoint：** `POST /tools/select`
 
-**Request:**
+**请求：**
+
 ```json
 {
   "task": "Search for information about Rust programming",
@@ -230,7 +243,8 @@ The Rust agent communicates with Python LLM service via HTTP REST API.
 }
 ```
 
-**Response:**
+**响应：**
+
 ```json
 {
   "calls": [
@@ -248,9 +262,10 @@ The Rust agent communicates with Python LLM service via HTTP REST API.
 
 ### Tool Execution
 
-**Endpoint:** `POST /tools/execute`
+**Endpoint：** `POST /tools/execute`
 
-**Request:**
+**请求：**
+
 ```json
 {
   "tool_name": "calculator",
@@ -260,7 +275,8 @@ The Rust agent communicates with Python LLM service via HTTP REST API.
 }
 ```
 
-**Response:**
+**响应：**
+
 ```json
 {
   "success": true,
@@ -271,9 +287,10 @@ The Rust agent communicates with Python LLM service via HTTP REST API.
 
 ### Task Analysis
 
-**Endpoint:** `POST /analyze_task`
+**Endpoint：** `POST /analyze_task`
 
-**Request:**
+**请求：**
+
 ```json
 {
   "query": "Build a web application with user authentication",
@@ -283,7 +300,8 @@ The Rust agent communicates with Python LLM service via HTTP REST API.
 }
 ```
 
-**Response:**
+**响应：**
+
 ```json
 {
   "execution_mode": "complex",
@@ -300,12 +318,14 @@ The Rust agent communicates with Python LLM service via HTTP REST API.
 
 ### Tool List
 
-**Endpoint:** `GET /tools/list`
+**Endpoint：** `GET /tools/list`
 
-**Query Parameters:**
-- `exclude_dangerous` (boolean): Filter out dangerous tools
+**Query 参数：**
 
-**Response:**
+* `exclude_dangerous`（boolean）：过滤掉危险工具
+
+**响应：**
+
 ```json
 [
   "calculator",
@@ -315,20 +335,20 @@ The Rust agent communicates with Python LLM service via HTTP REST API.
 ]
 ```
 
-## Error Codes
+## 错误码
 
-### gRPC Status Codes
+### gRPC 状态码
 
-| Code | Name | Description |
-|------|------|-------------|
-| 0 | OK | Success |
-| 3 | INVALID_ARGUMENT | Invalid request parameters |
-| 5 | NOT_FOUND | Tool or resource not found |
-| 8 | RESOURCE_EXHAUSTED | Memory or rate limit exceeded |
-| 13 | INTERNAL | Internal server error |
-| 14 | UNAVAILABLE | Service temporarily unavailable |
+| Code | Name               | 描述        |
+| ---- | ------------------ | --------- |
+| 0    | OK                 | 成功        |
+| 3    | INVALID_ARGUMENT   | 无效请求参数    |
+| 5    | NOT_FOUND          | 工具或资源未找到  |
+| 8    | RESOURCE_EXHAUSTED | 内存或速率限制超出 |
+| 13   | INTERNAL           | 内部服务器错误   |
+| 14   | UNAVAILABLE        | 服务暂时不可用   |
 
-### Agent Error Types
+### Agent 错误类型
 
 ```rust
 pub enum AgentError {
@@ -355,9 +375,9 @@ pub enum AgentError {
 }
 ```
 
-## Examples
+## 示例
 
-### Complete Task Execution Example
+### 完整任务执行示例
 
 ```rust
 use shannon_agent_core::grpc_server::proto::agent::*;
@@ -417,7 +437,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Streaming Execution Example
+### 流式执行示例
 
 ```rust
 use tokio_stream::StreamExt;
@@ -443,7 +463,7 @@ while let Some(update) = stream.next().await {
 }
 ```
 
-### Tool Discovery Example
+### 工具发现示例
 
 ```rust
 // Discover calculation tools
@@ -470,7 +490,7 @@ for tool in tools {
 }
 ```
 
-### Error Handling Example
+### 错误处理示例
 
 ```rust
 match client.execute_task(request).await {
@@ -501,56 +521,63 @@ match client.execute_task(request).await {
 }
 ```
 
-## Rate Limiting
+## 速率限制
 
-The agent core supports rate limiting enforcement at multiple levels:
+agent core 支持在多个层级强制执行速率限制：
 
-1. **Tool-level**: Each tool can specify rate limits
-2. **Request-level**: Per-request timeout and budget limits
-3. **Global**: Overall system rate limits
+1. **工具级别**：每个工具都可以指定速率限制
+2. **请求级别**：每个请求的超时和预算限制
+3. **全局级别**：整体系统速率限制
 
-**Note:** HTTP rate limit headers (`X-RateLimit-*`) are returned by the Gateway service, not directly by agent-core gRPC endpoints. See `go/orchestrator/cmd/gateway` for HTTP-level rate limiting.
+**注意：** HTTP 速率限制 headers（`X-RateLimit-*`）由 Gateway service 返回，而不是由 agent-core gRPC endpoints 直接返回。请查看 `go/orchestrator/cmd/gateway` 了解 HTTP 层面的速率限制。
 
-## Metrics
+## 指标
 
-Prometheus metrics available at `http://localhost:2113/metrics`:
+Prometheus metrics 可通过 `http://localhost:2113/metrics` 获取：
 
-**Task Metrics:**
-- `agent_core_tasks_total{mode, status}`: Total tasks processed
-- `agent_core_task_duration_seconds{mode}`: Task execution duration
-- `agent_core_task_tokens{mode, model}`: Tokens used per task
+**任务指标：**
 
-**Tool Metrics:**
-- `agent_core_tool_executions_total{tool_name, status}`: Total tool executions
-- `agent_core_tool_duration_seconds{tool_name}`: Tool execution latency
-- `agent_core_tool_selection_duration_seconds{status}`: Tool selection latency
+* `agent_core_tasks_total{mode, status}`：已处理任务总数
+* `agent_core_task_duration_seconds{mode}`：任务执行时长
+* `agent_core_task_tokens{mode, model}`：每个任务使用的 tokens
 
-**Memory Metrics:**
-- `agent_core_memory_pool_used_bytes`: Current memory pool usage
-- `agent_core_memory_pool_total_bytes`: Total memory pool size
+**工具指标：**
 
-**gRPC Metrics:**
-- `agent_core_grpc_requests_total{method, status}`: Total gRPC requests
-- `agent_core_grpc_request_duration_seconds{method}`: gRPC request duration
+* `agent_core_tool_executions_total{tool_name, status}`：工具执行总次数
+* `agent_core_tool_duration_seconds{tool_name}`：工具执行延迟
+* `agent_core_tool_selection_duration_seconds{status}`：工具选择延迟
 
-**Enforcement Metrics:**
-- `agent_core_enforcement_drops_total{reason}`: Requests dropped by enforcement layer
-- `agent_core_enforcement_allowed_total{outcome}`: Requests allowed by enforcement layer
+**内存指标：**
 
-**FSM Metrics:**
-- `agent_core_fsm_transitions_total{from_state, to_state}`: FSM state transitions
-- `agent_core_fsm_current_state`: Current FSM state (encoded as number)
+* `agent_core_memory_pool_used_bytes`：当前内存池使用量
+* `agent_core_memory_pool_total_bytes`：总内存池大小
 
-## Versioning
+**gRPC 指标：**
 
-The API follows semantic versioning:
-- **Major**: Breaking changes
-- **Minor**: New features, backward compatible
-- **Patch**: Bug fixes
+* `agent_core_grpc_requests_total{method, status}`：gRPC 请求总数
+* `agent_core_grpc_request_duration_seconds{method}`：gRPC 请求时长
 
-Current version: `0.1.0`
+**强制执行指标：**
 
-Check version via capabilities:
+* `agent_core_enforcement_drops_total{reason}`：被强制执行层丢弃的请求
+* `agent_core_enforcement_allowed_total{outcome}`：被强制执行层允许的请求
+
+**FSM 指标：**
+
+* `agent_core_fsm_transitions_total{from_state, to_state}`：FSM 状态转换
+* `agent_core_fsm_current_state`：当前 FSM 状态（编码为数字）
+
+## 版本控制
+
+API 遵循语义化版本控制：
+
+* **Major**：破坏性变更
+* **Minor**：新特性，向后兼容
+* **Patch**：Bug 修复
+
+
+通过 capabilities 检查版本：
+
 ```rust
 let capabilities = client.get_capabilities(Request::new(GetCapabilitiesRequest {})).await?;
 println!("Agent version: {}", capabilities.into_inner().version);
