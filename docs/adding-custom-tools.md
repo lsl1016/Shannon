@@ -1,37 +1,44 @@
-# Adding Custom Tools to Shannon
-**Extend Shannon with custom tools**
+# 向 Shannon 添加自定义工具
 
-## Table of Contents
-- [Overview](#overview)
-- [Quick Start: Adding MCP Tools](#quick-start-adding-mcp-tools)
-- [Adding OpenAPI Tools](#adding-openapi-tools)
-- [Adding Built-in Python Tools](#adding-built-in-python-tools)
-- [Configuration Reference](#configuration-reference)
-- [Testing & Verification](#testing--verification)
-- [Troubleshooting](#troubleshooting)
-- [Security Best Practices](#security-best-practices)
+**使用自定义工具扩展 Shannon**
 
-## Overview
-Shannon supports three ways to add custom tools:
+## 目录
 
-| Method         | Best For                                     | Code Changes | Restart Required |
-|----------------|----------------------------------------------|--------------|------------------|
-| **MCP Tools**  | External HTTP APIs, rapid prototyping        | None         | ✅ Service only  |
-| **OpenAPI Tools** | REST APIs with OpenAPI specs                 | None         | ✅ Service only  |
-| **Built-in Tools**| Complex logic, database access, performance | Python code  | ✅ Service only  |
+* [概览](#概览)
+* [快速开始：添加 MCP 工具](#快速开始添加-mcp-工具)
+* [添加 OpenAPI 工具](#添加-openapi-工具)
+* [添加内置 Python 工具](#添加内置-python-工具)
+* [配置参考](#配置参考)
+* [测试与验证](#测试与验证)
+* [故障排查](#故障排查)
+* [安全最佳实践](#安全最佳实践)
 
-**Key Features:**
-- ✅ No Proto/Rust/Go changes needed (generic containers)
-- ✅ Dynamic registration via API or YAML config
-- ✅ Built-in rate limiting and circuit breakers
-- ✅ Domain allowlisting for security
-- ✅ Cost tracking and budget enforcement
+## 概览
 
-## Quick Start: Adding MCP Tools
-MCP (Model Context Protocol) tools integrate any HTTP endpoint as a Shannon tool with zero code changes.
+Shannon 支持三种方式添加自定义工具：
 
-### Step 1: Add Tool Definition
-Edit `config/shannon.yaml` under `mcp_tools`:
+| 方法                 | 最适合                          | 代码变更        | 是否需要重启 |
+| ------------------ | ---------------------------- | ----------- | ------ |
+| **MCP Tools**      | 外部 HTTP APIs、快速原型            | 无           | ✅ 仅服务  |
+| **OpenAPI Tools**  | 带有 OpenAPI specs 的 REST APIs | 无           | ✅ 仅服务  |
+| **Built-in Tools** | 复杂逻辑、数据库访问、性能                | Python code | ✅ 仅服务  |
+
+**核心特性：**
+
+* ✅ 无需 Proto/Rust/Go 变更（通用容器）
+* ✅ 通过 API 或 YAML config 动态注册
+* ✅ 内置速率限制和熔断器
+* ✅ 用于安全的域名白名单
+* ✅ 成本跟踪和预算强制控制
+
+## 快速开始：添加 MCP 工具
+
+MCP（Model Context Protocol）工具可以在零代码变更的情况下，将任意 HTTP endpoint 集成为 Shannon 工具。
+
+### 步骤 1：添加工具定义
+
+编辑 `config/shannon.yaml` 中的 `mcp_tools`：
+
 ```yaml
 mcp_tools:
   weather_forecast:
@@ -55,29 +62,38 @@ mcp_tools:
       X-API-Key: "your_api_key_here"  # For MCP, header values are literal (no env expansion)
       # Tip: Prefer the runtime registration API below and inject secrets from your env at call time
 ```
-**Required Fields:**
-- `enabled`: `true` to activate
-- `url`: HTTP endpoint (must be POST, accepts JSON)
-- `func_name`: Internal function name
-- `description`: LLM visible description
-- `category`: Tool category (e.g., `search`, `data`, `analytics`, `code`)
-- `cost_per_use`: Estimated cost in USD
-- `parameters`: Array of parameter definitions
 
-**Optional Fields:**
-- `headers`: HTTP headers for authentication
+**必填字段：**
 
-### Step 2: Configure Domain Access
-**Development (permissive):**
-Add to `.env`:
+* `enabled`：设置为 `true` 以激活
+* `url`：HTTP endpoint（必须是 POST，接收 JSON）
+* `func_name`：内部函数名
+* `description`：LLM 可见描述
+* `category`：工具类别（例如 `search`、`data`、`analytics`、`code`）
+* `cost_per_use`：预估成本，单位 USD
+* `parameters`：参数定义数组
+
+**可选字段：**
+
+* `headers`：用于认证的 HTTP headers
+
+### 步骤 2：配置域名访问
+
+**开发环境（宽松）：**
+添加到 `.env`：
+
 ```bash
 MCP_ALLOWED_DOMAINS=*  # Wildcard - allows all domains
 ```
-**Production (recommended):**
+
+**生产环境（推荐）：**
+
 ```bash
 MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,api.weather.com,api.example.com
 ```
-Or set in `deploy/compose/docker-compose.yml`:
+
+或者在 `deploy/compose/docker-compose.yml` 中设置：
+
 ```yaml
 services:
   llm-service:
@@ -85,40 +101,54 @@ services:
       - MCP_ALLOWED_DOMAINS=api.weather.com,api.stocks.com
 ```
 
-### Step 3: Add API Keys
-Add your API key to `.env`:
+### 步骤 3：添加 API Keys
+
+将你的 API key 添加到 `.env`：
+
 ```bash
 # MCP Tool API Keys
 WEATHER_API_KEY=your_api_key_here
 STOCK_API_KEY=your_stock_key_here
 ```
 
-### Step 4: Restart Service
-**Important:** You must **recreate** the service:
+### 步骤 4：重启服务
+
+**重要：** 你必须**重新创建**服务：
+
 ```bash
 docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
 ```
-Wait for health check:
+
+等待健康检查：
+
 ```bash
 docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'
 ```
 
-### Step 5: Verify Registration
-Check logs:
+### 步骤 5：验证注册
+
+检查日志：
+
 ```bash
 docker compose logs llm-service | grep "Loaded MCP tool"
 ```
-List tools via API:
+
+通过 API 列出工具：
+
 ```bash
 curl http://localhost:8000/tools/list | jq .
 ```
-Get tool schema:
+
+获取工具 schema：
+
 ```bash
 curl http://localhost:8000/tools/weather_forecast/schema | jq .
 ```
 
-### Step 6: Test Your Tool
-**Direct execution:**
+### 步骤 6：测试你的工具
+
+**直接执行：**
+
 ```bash
 curl -X POST http://localhost:8000/tools/execute \
 -H "Content-Type: application/json" \
@@ -127,13 +157,17 @@ curl -X POST http://localhost:8000/tools/execute \
   "parameters": {"location": "Tokyo", "units": "celsius"}
 }'
 ```
-**Via workflow:**
+
+**通过 workflow：**
+
 ```bash
 SESSION_ID="test-$(date +%s)" ./scripts/submit_task.sh "What's the weather forecast for Tokyo?"
 ```
 
-### Alternative: Runtime API Registration
-For development/testing only (tools lost on restart):
+### 替代方案：运行时 API 注册
+
+仅用于开发/测试（工具会在重启后丢失）：
+
 ```bash
 # Set admin token in .env
 MCP_REGISTER_TOKEN=your_secret_token
@@ -155,8 +189,10 @@ curl -X POST http://localhost:8000/tools/mcp/register \
 }'
 ```
 
-### MCP Request Convention
-Shannon sends POST requests:
+### MCP 请求约定
+
+Shannon 发送 POST 请求：
+
 ```json
 {
   "function": "get_weather",
@@ -166,7 +202,9 @@ Shannon sends POST requests:
   }
 }
 ```
-Your endpoint should return JSON:
+
+你的 endpoint 应该返回 JSON：
+
 ```json
 {
   "temperature": 18,
@@ -175,63 +213,76 @@ Your endpoint should return JSON:
 }
 ```
 
-## Adding OpenAPI Tools
-For REST APIs with OpenAPI 3.x specifications, Shannon automatically generates tools.
+## 添加 OpenAPI 工具
 
-> 💡 New in v0.8: For domain-specific APIs requiring custom transformations, see the [Vendor Adapter Pattern](#vendor-adapter-pattern) or the comprehensive [Vendor Adapters Guide](vendor-adapters.md).
+对于带有 OpenAPI 3.x 规范的 REST APIs，Shannon 会自动生成工具。
 
-### Features
-**Supported:**
-- ✅ OpenAPI 3.0 and 3.1 specs
-- ✅ URL-based or inline spec loading
-- ✅ JSON request/response bodies
-- ✅ Path and query parameters
-- ✅ Bearer, API Key (header/query), Basic auth
-- ✅ Operation filtering by `operationId` or tags
-- ✅ Circuit breaker (5 failures → 60s cooldown)
-- ✅ Retry logic with exponential backoff (default 2 retries; override via `OPENAPI_RETRIES`)
-- ✅ Configurable rate limits and timeouts
-- ✅ Relative server URLs (resolved against spec URL)
-- ✅ Basic `$ref` resolution (local references to `#/components/schemas/*`)
+> 💡 v0.8 新增：对于需要自定义转换的特定领域 APIs，请查看 [Vendor Adapter Pattern](#vendor-adapter-pattern) 或完整的 [Vendor Adapters Guide](vendor-adapters.md)。
 
-**Limitations (MVP):**
-Shannon OpenAPI integration is production-ready for ~70% of REST APIs (JSON-based with simple auth). The following features are **not yet supported:**
-- **❌ File Upload APIs (multipart/form-data)**
-  - Cannot upload files or binary data
-  - Workaround: Use base64-encoded files in JSON body
-  - Affected APIs: Image generation, file processing, document upload APIs
-- **❌ OAuth-Protected APIs**
-  - No OAuth 2.0 flows (Authorization Code, Client Credentials)
-  - Can only use Bearer tokens (manually obtained)
-  - Affected APIs: Google APIs, GitHub, Slack, Twitter, etc.
-  - Workaround: Manually obtain OAuth token and use `bearer` `auth_type`
-- **❌ Complex Parameter Encoding**
-  - No `style`, `explode`, or `deepObject` serialization
-  - Only basic path/query parameter substitution
-  - Affected APIs: APIs with complex array/object query parameters
-- **❌ Multi-File OpenAPI Specs**
-  - No remote `$ref` resolution (e.g., `https://example.com/schemas/Pet.json`)
-  - Only local refs (`#/components/...`) supported
-  - Workaround: Merge external schemas into single spec file
-- **❌ Advanced Schema Combinators**
-  - No `allOf`, `oneOf`, `anyOf` support
-  - Only basic type mapping
-  - Affected APIs: APIs with polymorphic types or complex validation
-- **❌ Form-Encoded Requests**
-  - No `application/x-www-form-urlencoded` content type
-  - Only JSON request bodies supported
+### 特性
 
-**What Works Well:**
-- ✅ Simple REST APIs with JSON request/response
-- ✅ APIs with Bearer/API Key/Basic authentication
-- ✅ Read-heavy operations (GET requests)
-- ✅ Well-structured specs with local `$ref` references
-- ✅ Path and query parameters (primitives)
+**已支持：**
 
-**Important:** For specs with relative server URLs (e.g., `/api/v3`), you must provide the spec via `spec_url` (not `spec_inline`) so Shannon can resolve the full base URL. Example: PetStore spec has `servers: [{url: "/api/v3"}]`, which resolves to `https://petstore3.swagger.io/api/v3` when loaded from `https://petstore3.swagger.io/api/v3/openapi.json`.
+* ✅ OpenAPI 3.0 和 3.1 specs
+* ✅ 基于 URL 或内联 spec 加载
+* ✅ JSON 请求/响应体
+* ✅ Path 和 query 参数
+* ✅ Bearer、API Key（header/query）、Basic auth
+* ✅ 按 `operationId` 或 tags 过滤操作
+* ✅ 熔断器（5 次失败 → 60s 冷却）
+* ✅ 带指数退避的重试逻辑（默认 2 次重试；可通过 `OPENAPI_RETRIES` 覆盖）
+* ✅ 可配置的速率限制和超时
+* ✅ 相对 server URLs（基于 spec URL 解析）
+* ✅ 基础 `$ref` 解析（指向 `#/components/schemas/*` 的本地引用）
 
-### Step 1: Add Tool Definition
-Edit `config/shannon.yaml` under `openapi_tools`:
+**限制（MVP）：**
+Shannon OpenAPI 集成对约 70% 的 REST APIs（基于 JSON 且简单认证）已可用于生产。以下特性**尚不支持：**
+
+* **❌ 文件上传 APIs（multipart/form-data）**
+
+  * 无法上传文件或二进制数据
+  * 变通方案：在 JSON body 中使用 base64 编码文件
+  * 受影响 APIs：图像生成、文件处理、文档上传 APIs
+* **❌ OAuth 保护的 APIs**
+
+  * 无 OAuth 2.0 flows（Authorization Code、Client Credentials）
+  * 只能使用 Bearer tokens（手动获取）
+  * 受影响 APIs：Google APIs、GitHub、Slack、Twitter 等
+  * 变通方案：手动获取 OAuth token，并使用 `bearer` `auth_type`
+* **❌ 复杂参数编码**
+
+  * 不支持 `style`、`explode` 或 `deepObject` 序列化
+  * 仅支持基础 path/query 参数替换
+  * 受影响 APIs：带有复杂数组/对象 query 参数的 APIs
+* **❌ 多文件 OpenAPI Specs**
+
+  * 不支持远程 `$ref` 解析（例如 `https://example.com/schemas/Pet.json`）
+  * 仅支持本地 refs（`#/components/...`）
+  * 变通方案：将外部 schemas 合并到单个 spec 文件中
+* **❌ 高级 Schema 组合器**
+
+  * 不支持 `allOf`、`oneOf`、`anyOf`
+  * 仅基础类型映射
+  * 受影响 APIs：带有多态类型或复杂校验的 APIs
+* **❌ 表单编码请求**
+
+  * 不支持 `application/x-www-form-urlencoded` content type
+  * 仅支持 JSON 请求体
+
+**运行良好的场景：**
+
+* ✅ 简单 REST APIs，JSON 请求/响应
+* ✅ 带有 Bearer/API Key/Basic 认证的 APIs
+* ✅ 读多写少操作（GET 请求）
+* ✅ 结构良好且带有本地 `$ref` references 的 specs
+* ✅ Path 和 query 参数（基础类型）
+
+**重要：** 对于带有相对 server URLs（例如 `/api/v3`）的 specs，你必须通过 `spec_url`（而不是 `spec_inline`）提供 spec，这样 Shannon 才能解析完整 base URL。示例：PetStore spec 包含 `servers: [{url: "/api/v3"}]`，当从 `https://petstore3.swagger.io/api/v3/openapi.json` 加载时，会解析为 `https://petstore3.swagger.io/api/v3`。
+
+### 步骤 1：添加工具定义
+
+编辑 `config/shannon.yaml` 中的 `openapi_tools`：
+
 ```yaml
 openapi_tools:
   petstore:
@@ -261,8 +312,10 @@ openapi_tools:
     # base_url: "https://custom-petstore.example.com"
 ```
 
-### Authentication Examples
-**Bearer Token (GitHub API):**
+### 认证示例
+
+**Bearer Token（GitHub API）：**
+
 ```yaml
 github:
   enabled: true
@@ -274,7 +327,9 @@ github:
     - "repos/get"
     - "repos/list-for-user"
 ```
-**API Key in Query (OpenWeather):**
+
+**Query 中的 API Key（OpenWeather）：**
+
 ```yaml
 weather:
   enabled: true
@@ -285,7 +340,9 @@ weather:
     api_key_location: "query"
     api_key_value: "$OPENWEATHER_API_KEY"
 ```
-**Basic Auth:**
+
+**Basic Auth：**
+
 ```yaml
 custom_api:
   enabled: true
@@ -296,8 +353,10 @@ custom_api:
     password: "$API_PASSWORD"
 ```
 
-### Step 2: Configure Environment
-Add to `.env`:
+### 步骤 2：配置环境
+
+添加到 `.env`：
+
 ```bash
 # OpenAPI Security
 OPENAPI_ALLOWED_DOMAINS=*                # Comma-separated or * for dev
@@ -315,19 +374,24 @@ API_PASSWORD=password
 MCP_REGISTER_TOKEN=your_admin_token
 ```
 
-### Step 3: Restart Service
+### 步骤 3：重启服务
+
 ```bash
 docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
 ```
 
-### Step 4: Verify & Test
-**Validate spec first:**
+### 步骤 4：验证和测试
+
+**先验证 spec：**
+
 ```bash
 curl -X POST http://localhost:8000/tools/openapi/validate \
 -H "Content-Type: application/json" \
 -d '{"spec_url": "https://petstore3.swagger.io/api/v3/openapi.json"}' | jq .
 ```
-**Response:**
+
+**响应：**
+
 ```json
 {
   "valid": true,
@@ -339,11 +403,15 @@ curl -X POST http://localhost:8000/tools/openapi/validate \
   "base_url": "https://petstore3.swagger.io/api/v3"
 }
 ```
-**List registered tools:**
+
+**列出已注册工具：**
+
 ```bash
 curl http://localhost:8000/tools/list | grep Pet
 ```
-**Execute tool:**
+
+**执行工具：**
+
 ```bash
 curl -X POST http://localhost:8000/tools/execute \
 -H "Content-Type: application/json" \
@@ -353,7 +421,8 @@ curl -X POST http://localhost:8000/tools/execute \
 }' | jq .
 ```
 
-### Alternative: Runtime Registration
+### 替代方案：运行时注册
+
 ```bash
 curl -X POST http://localhost:8000/tools/openapi/register \
 -H "Content-Type: application/json" \
@@ -368,7 +437,9 @@ curl -X POST http://localhost:8000/tools/openapi/register \
   "timeout_seconds": 10
 }' | jq .
 ```
-**Response includes verification:**
+
+**响应包含验证信息：**
+
 ```json
 {
   "success": true,
@@ -380,25 +451,31 @@ curl -X POST http://localhost:8000/tools/openapi/register \
 }
 ```
 
-## Adding Built-in Python Tools
-For complex logic, database access, or performance-critical operations.
+## 添加内置 Python 工具
 
-### When to Use Built-in Tools
-**Use built-in tools when:**
-- Direct database/Redis access is needed
-- Complex Python libraries (pandas, numpy) are required
-- Performance-critical operations (avoid HTTP roundtrip)
-- Session state management is necessary
-- Security-sensitive operations are implemented
+适用于复杂逻辑、数据库访问或性能关键操作。
 
-**Use MCP/OpenAPI instead when:**
-- Integrating external APIs
-- No-code deployment is preferred
-- Quick prototyping
-- Third-party service integration
+### 何时使用内置工具
 
-### Step 1: Create Tool Class
-Create file in `python/llm-service/llm_service/tools/builtin/my_custom_tool.py`:
+**当出现以下情况时使用内置工具：**
+
+* 需要直接访问数据库/Redis
+* 需要复杂 Python libraries（pandas、numpy）
+* 性能关键操作（避免 HTTP 往返）
+* 需要会话状态管理
+* 实现安全敏感操作
+
+**当出现以下情况时使用 MCP/OpenAPI：**
+
+* 集成外部 APIs
+* 偏好无代码部署
+* 快速原型
+* 第三方服务集成
+
+### 步骤 1：创建工具类
+
+在 `python/llm-service/llm_service/tools/builtin/my_custom_tool.py` 中创建文件：
+
 ```python
 from typing import Any, Dict, List, Optional
 from ..base import Tool, ToolMetadata, ToolParameter, ToolParameterType, ToolResult
@@ -497,8 +574,10 @@ class MyCustomTool(Tool):
         return {"result": "success", "data": [1, 2, 3]}
 ```
 
-### Step 2: Register Tool
-Edit `python/llm-service/llm_service/api/tools.py` and update the `startup_event()` registration list:
+### 步骤 2：注册工具
+
+编辑 `python/llm-service/llm_service/api/tools.py` 并更新 `startup_event()` 注册列表：
+
 ```python
 # Add import at top
 from ..tools.builtin.my_custom_tool import MyCustomTool
@@ -525,12 +604,14 @@ async def startup_event():
             logger.error(f"Failed to register {tool_class.__name__}: {e}")
 ```
 
-### Step 3: Restart Service
+### 步骤 3：重启服务
+
 ```bash
 docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
 ```
 
-### Step 4: Test Tool
+### 步骤 4：测试工具
+
 ```bash
 # Verify registration
 curl http://localhost:8000/tools/list | grep my_custom_tool
@@ -551,8 +632,10 @@ curl -X POST http://localhost:8000/tools/execute \
 }' | jq .
 ```
 
-### Advanced: Session-Aware Tools
-For tools that maintain state across executions:
+### 进阶：会话感知工具
+
+对于需要在多次执行之间维护状态的工具：
+
 ```python
 class SessionAwareTool(Tool):
     def _get_metadata(self) -> ToolMetadata:
@@ -577,8 +660,10 @@ class SessionAwareTool(Tool):
         return ToolResult(success=True, output={"session": session_id})
 ```
 
-## Configuration Reference
-### MCP Tool Configuration
+## 配置参考
+
+### MCP 工具配置
+
 ```yaml
 mcp_tools:
   tool_name:
@@ -600,7 +685,8 @@ mcp_tools:
       # Prefer dynamic registration and pass secrets at runtime
 ```
 
-### OpenAPI Tool Configuration
+### OpenAPI 工具配置
+
 ```yaml
 openapi_tools:
   collection_name:
@@ -630,8 +716,10 @@ openapi_tools:
     base_url: "https://override.com" # Optional: Override spec base URL
 ```
 
-### Environment Variables
-**MCP Configuration:**
+### 环境变量
+
+**MCP 配置：**
+
 ```bash
 # Domain Security
 MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,api.example.com  # Or * for dev
@@ -648,7 +736,9 @@ MCP_TIMEOUT_SECONDS=10               # Request timeout
 # Registration Security
 MCP_REGISTER_TOKEN=your_secret       # API registration protection
 ```
-**OpenAPI Configuration:**
+
+**OpenAPI 配置：**
+
 ```bash
 # Domain Security
 OPENAPI_ALLOWED_DOMAINS=*            # Comma-separated or * for dev
@@ -658,7 +748,9 @@ OPENAPI_FETCH_TIMEOUT=30             # Spec fetch timeout
 # Request Behavior
 OPENAPI_RETRIES=2                    # Retry attempts (default: 2). Set higher if needed
 ```
-**Tool-Specific API Keys:**
+
+**工具专用 API Keys：**
+
 ```bash
 # Add your tool API keys here
 WEATHER_API_KEY=your_key
@@ -669,8 +761,10 @@ PETSTORE_API_KEY=your_key
 # ... add more as needed
 ```
 
-## Testing & Verification
-### Health Checks
+## 测试与验证
+
+### 健康检查
+
 ```bash
 # Check service health
 curl http://localhost:8081/health | jq .
@@ -678,7 +772,9 @@ curl http://localhost:8081/health | jq .
 # Check LLM service status
 docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'
 ```
-### List Tools
+
+### 列出工具
+
 ```bash
 # All tools
 curl http://localhost:8000/tools/list | jq .
@@ -692,7 +788,9 @@ curl "http://localhost:8000/tools/list?exclude_dangerous=true" | jq .
 # List categories
 curl http://localhost:8000/tools/categories | jq .
 ```
-### Get Tool Schema
+
+### 获取工具 Schema
+
 ```bash
 # Single tool schema
 curl http://localhost:8000/tools/my_tool/schema | jq .
@@ -703,8 +801,11 @@ curl http://localhost:8000/tools/schemas | jq .
 # Tool metadata
 curl http://localhost:8000/tools/my_tool/metadata | jq .
 ```
-### Execute Tools
-**Direct execution:**
+
+### 执行工具
+
+**直接执行：**
+
 ```bash
 curl -X POST http://localhost:8000/tools/execute \
 -H "Content-Type: application/json" \
@@ -713,7 +814,9 @@ curl -X POST http://localhost:8000/tools/execute \
   "parameters": {"expression": "sqrt(144) + 2^3"}
 }' | jq .
 ```
-**Batch execution:**
+
+**批量执行：**
+
 ```bash
 curl -X POST http://localhost:8000/tools/batch-execute \
 -H "Content-Type: application/json" \
@@ -722,11 +825,15 @@ curl -X POST http://localhost:8000/tools/batch-execute \
   {"tool_name": "calculator", "parameters": {"expression": "10*5"}}
 ]' | jq .
 ```
-**Via workflow:**
+
+**通过 workflow：**
+
 ```bash
 SESSION_ID="test-$(date +%s)" ./scripts/submit_task.sh "Calculate 2+2 and then multiply by 5"
 ```
-### Monitor Logs
+
+### 监控日志
+
 ```bash
 # Registration logs
 docker compose logs llm-service | grep -i "registered tool"
@@ -738,7 +845,9 @@ docker compose logs -f llm-service orchestrator agent-core
 # Tool-specific logs
 docker compose logs llm-service | grep "my_tool"
 ```
-### E2E Tests
+
+### E2E 测试
+
 ```bash
 # Run all tests
 make smoke
@@ -751,10 +860,13 @@ make smoke
 ./tests/e2e/run.sh
 ```
 
-## Troubleshooting
-### Tool Not Registered
-**Symptom:** Tool doesn't appear in `/tools/list`
-**Debug steps:**
+## 故障排查
+
+### 工具未注册
+
+**现象：** 工具没有出现在 `/tools/list` 中
+**调试步骤：**
+
 ```bash
 # 1. Check YAML syntax
 yamllint config/shannon.yaml
@@ -772,31 +884,40 @@ docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-s
 sleep 10
 docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'
 ```
-### Domain Validation Error
-**Symptom:** `URL host 'example.com' not in allowed domains`
-**Solutions:**
-- **Development:** Use wildcard
+
+### 域名校验错误
+
+**现象：** `URL host 'example.com' not in allowed domains`
+**解决方案：**
+
+* **开发环境：** 使用通配符
+
   ```
   # .env
   MCP_ALLOWED_DOMAINS=*
   OPENAPI_ALLOWED_DOMAINS=*
   ```
-- **Production:** Add specific domain
+* **生产环境：** 添加特定域名
+
   ```
   # .env
   MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,api.example.com
   OPENAPI_ALLOWED_DOMAINS=api.example.com,api.github.com
   ```
-- **Docker Compose:** Set in environment
+* **Docker Compose：** 在 environment 中设置
+
   ```yaml
   services:
     llm-service:
       environment:
         - MCP_ALLOWED_DOMAINS=api.example.com
   ```
-### Tool Execution Fails
-**Symptom:** `ToolResult { success: false, error: "..." }`
-**Debug:**
+
+### 工具执行失败
+
+**现象：** `ToolResult { success: false, error: "..." }`
+**调试：**
+
 ```bash
 # 1. Test tool directly
 curl -X POST http://localhost:8000/tools/execute \
@@ -817,10 +938,14 @@ docker logs shannon-agent-core-1 | grep "Tool execution error"
 # 5. Check LLM service logs
 docker logs shannon-llm-service-1 | grep my_tool
 ```
-### Tool Not Selected by LLM
-**Symptom:** LLM doesn't use your tool for relevant queries
-**Solutions:**
-- **Improve description:** Make it specific and use LLM-friendly keywords
+
+### LLM 未选择工具
+
+**现象：** LLM 没有在相关 query 中使用你的工具
+**解决方案：**
+
+* **改进 description：** 让它具体，并使用 LLM 友好的关键词
+
   ```
   # Bad
   description: "Weather tool"
@@ -828,13 +953,15 @@ docker logs shannon-llm-service-1 | grep my_tool
   # Good
   description: "Get real-time weather forecast data for any city including temperature, humidity, and conditions. Use for queries about current or future weather."
   ```
-- **Add to decomposition context:**
-  Current limitation: Orchestrator passes empty tools list to decomposition. Tools won't appear in system prompt by default.
-  **Quick fix:** Agent service has auto-load fallback (lines 598-609 in `agent.py`)
-  **Proper fix:** Update orchestrator workflows to call `fetchAvailableTools()` and pass in `AvailableTools` field:
-  - `go/orchestrator/internal/workflows/orchestrator_router.go:80`
-  - `go/orchestrator/internal/workflows/supervisor_workflow.go:273`
-- **Test tool selection:**
+* **添加到 decomposition context：**
+  当前限制：Orchestrator 会将空 tools list 传递给 decomposition。Tools 默认不会出现在 system prompt 中。
+  **快速修复：** Agent service 有自动加载 fallback（`agent.py` 中的 598-609 行）
+  **正确修复：** 更新 orchestrator workflows，调用 `fetchAvailableTools()` 并传入 `AvailableTools` 字段：
+
+  * `go/orchestrator/internal/workflows/orchestrator_router.go:80`
+  * `go/orchestrator/internal/workflows/supervisor_workflow.go:273`
+* **测试工具选择：**
+
   ```bash
   curl -X POST http://localhost:8000/tools/select \
   -H "Content-Type: application/json" \
@@ -843,13 +970,17 @@ docker logs shannon-llm-service-1 | grep my_tool
     "max_tools": 3
   }' | jq .
   ```
-- **Use explicit mention:**
+* **显式提及：**
+
   ```bash
   ./scripts/submit_task.sh "Use the weather_forecast tool to get weather for Tokyo"
   ```
-### Circuit Breaker Triggered
-**Symptom:** `Circuit breaker open for <url> (too many failures)`
-**Debug:**
+
+### 熔断器触发
+
+**现象：** `Circuit breaker open for <url> (too many failures)`
+**调试：**
+
 ```bash
 # Check recent errors
 docker logs shannon-llm-service-1 --tail 100 | grep -i "circuit\|failure"
@@ -860,13 +991,18 @@ sleep 60
 # Or restart to reset
 docker compose restart llm-service
 ```
-**Prevent:**
-- Increase failure threshold: `MCP_CB_FAILURES=10`
-- Increase recovery time: `MCP_CB_RECOVERY_SECONDS=120`
-- Fix underlying API issues
-### Rate Limit Exceeded
-**Symptom:** `Rate limit exceeded for tool <name>`
-**Solutions:**
+
+**预防：**
+
+* 增加失败阈值：`MCP_CB_FAILURES=10`
+* 增加恢复时间：`MCP_CB_RECOVERY_SECONDS=120`
+* 修复底层 API 问题
+
+### 超出速率限制
+
+**现象：** `Rate limit exceeded for tool <name>`
+**解决方案：**
+
 ```yaml
 # Increase rate limit in config
 # config/shannon.yaml
@@ -879,52 +1015,70 @@ ToolMetadata(
 )
 ```
 
-## Security Best Practices
-### Domain Allowlisting
-**Development:**
+## 安全最佳实践
+
+### 域名白名单
+
+**开发环境：**
+
 ```bash
 # Permissive for testing
 MCP_ALLOWED_DOMAINS=*
 OPENAPI_ALLOWED_DOMAINS=*
 ```
-**Staging:**
+
+**预发环境：**
+
 ```bash
 # Specific domains + localhost
 MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,staging-api.example.com
 ```
-**Production:**
+
+**生产环境：**
+
 ```bash
 # Explicit allowlist only
 MCP_ALLOWED_DOMAINS=api.example.com,api.partner.com
 OPENAPI_ALLOWED_DOMAINS=api.github.com,api.openweathermap.org
 ```
-**Subdomain Matching:**
-- `api.example.com` allows `api.example.com` and `v1.api.example.com`
-- Wildcard `*` bypasses all validation (use cautiously!)
 
-### API Key Management
-**❌ Never hardcode:**
+**子域名匹配：**
+
+* `api.example.com` 允许 `api.example.com` 和 `v1.api.example.com`
+* 通配符 `*` 会绕过所有校验（请谨慎使用！）
+
+### API Key 管理
+
+**❌ 永远不要硬编码：**
+
 ```yaml
 # BAD - Don't do this!
 headers:
   X-API-Key: "sk-1234567890abcdef"
 ```
-**✅ Use environment variables:**
+
+**✅ 使用环境变量：**
+
 ```yaml
 # GOOD - Reference env vars
 headers:
   X-API-Key: "${WEATHER_API_KEY}"
 ```
-**Store in `.env` (not tracked by git):**
+
+**存储在 `.env` 中（不要提交到 git）：**
+
 ```bash
 # .env
 WEATHER_API_KEY=sk-real-key-here
 STOCK_API_KEY=your-stock-key
 ```
-**For production:** Use secrets management (Docker, Kubernetes, HashiCorp Vault, AWS Secrets Manager)
 
-### Rate Limiting
-**Per-tool limits:**
+**生产环境：** 使用 secrets management（Docker、Kubernetes、HashiCorp Vault、AWS Secrets Manager）
+
+### 速率限制
+
+**每工具限制：**
+
 ```yaml
 # MCP tools
 mcp_tools:
@@ -936,14 +1090,18 @@ openapi_tools:
   github:
     rate_limit: 60  # GitHub's actual limit
 ```
-**Global limits:**
+
+**全局限制：**
+
 ```bash
 # .env
 MCP_RATE_LIMIT_DEFAULT=60    # Default for all MCP tools
 ```
 
-### Circuit Breakers
-**Configuration:**
+### 熔断器
+
+**配置：**
+
 ```bash
 # MCP circuit breaker
 MCP_CB_FAILURES=5                 # Open after 5 failures
@@ -955,8 +1113,10 @@ MCP_CB_RECOVERY_SECONDS=60        # Stay open for 60s
 # - Auto-recovery after timeout
 ```
 
-### Authentication
-**MCP Registration API:**
+### 认证
+
+**MCP Registration API：**
+
 ```bash
 # Require token for dynamic registration
 MCP_REGISTER_TOKEN=your-secure-random-token
@@ -966,13 +1126,17 @@ curl -H "Authorization: Bearer your-secure-random-token" ...
 # OR
 curl -H "X-Admin-Token: your-secure-random-token" ...
 ```
-**Generate secure tokens:**
+
+**生成安全 tokens：**
+
 ```bash
 openssl rand -hex 32
 ```
 
-### Dangerous Tools
-Mark tools that modify state or access sensitive resources:
+### 危险工具
+
+标记会修改状态或访问敏感资源的工具：
+
 ```python
 ToolMetadata(
     name="file_write",
@@ -981,7 +1145,9 @@ ToolMetadata(
     ...
 )
 ```
-**OPA policies can then gate access:**
+
+**OPA policies 随后可以限制访问：**
+
 ```rego
 # config/opa/policies/tools.rego
 package tools
@@ -992,8 +1158,11 @@ deny[msg] {
   msg := "file_write requires admin role"
 }
 ```
-### Response Size Limits
-**Prevent DoS via large responses:**
+
+### 响应大小限制
+
+**防止大响应造成 DoS：**
+
 ```yaml
 # OpenAPI tools
 max_response_bytes: 10485760  # 10MB default
@@ -1001,8 +1170,11 @@ max_response_bytes: 10485760  # 10MB default
 # MCP tools (env var)
 MCP_MAX_RESPONSE_BYTES=10485760
 ```
-### Timeout Configuration
-**Prevent hanging requests:**
+
+### 超时配置
+
+**防止请求挂起：**
+
 ```yaml
 # OpenAPI tools
 timeout_seconds: 30  # Per-request timeout
@@ -1010,43 +1182,53 @@ timeout_seconds: 30  # Per-request timeout
 # MCP tools (env var)
 MCP_TIMEOUT_SECONDS=10
 ```
-### HTTPS Enforcement
-**For non-localhost URLs, Shannon enforces HTTPS:**
-- ✅ `https://api.example.com` - Allowed
-- ✅ `http://localhost:8080` - Allowed
-- ❌ `http://api.example.com` - Rejected in production
 
-## Next Steps
-**Explore Advanced Topics:**
-- [Tools Implementation Guide](tools-implementation-guide.md) - Architecture deep-dive
-- [MCP Integration](mcp-integration.md) - Full MCP specification
-- [Python WASI Execution](python-code-execution.md) - Sandboxed code execution
+### HTTPS 强制
 
-**Example Tools:**
-- Built-in tools: `python/llm-service/llm_service/tools/builtin/`
-- MCP examples: `config/shannon.yaml` (commented examples)
-- OpenAPI examples: `tests/e2e/06_openapi_petstore_test.sh`
+**对于非 localhost URLs，Shannon 强制使用 HTTPS：**
 
-**Community:**
-- Report issues: https://github.com/anthropics/shannon/issues
-- Contribute tools: https://github.com/anthropics/shannon/pulls
+* ✅ `https://api.example.com` - 允许
+* ✅ `http://localhost:8080` - 允许
+* ❌ `http://api.example.com` - 生产环境拒绝
 
-## Summary
-**Three ways to add tools:**
+## 后续步骤
 
-| Method     | Command                                | Config File        | Code Changes |
-|------------|----------------------------------------|--------------------|--------------|
-| **MCP**    | `docker compose up -d --force-recreate llm-service` | `config/shannon.yaml` | None         |
-| **OpenAPI**| `docker compose up -d --force-recreate llm-service` | `config/shannon.yaml` | None         |
-| **Built-in**| `docker compose up -d --force-recreate llm-service` | `api/tools.py` + new file | Python only  |
+**探索进阶主题：**
 
-**Key takeaways:**
-- ✅ Zero proto/Rust/Go changes (generic `google.protobuf.Struct` containers)
-- ✅ Security built-in (domain allowlisting, rate limiting, circuit breakers)
-- ✅ Cost tracking automatic (set `cost_per_use` in metadata)
-- ✅ Schema-driven (OpenAI-compatible JSON schemas)
+* [Tools Implementation Guide](tools-implementation-guide.md) - 架构深度解析
+* [MCP Integration](mcp-integration.md) - 完整 MCP 规范
+* [Python WASI Execution](python-code-execution.md) - 沙箱化代码执行
 
-**Quick reference:**
+**示例工具：**
+
+* 内置工具：`python/llm-service/llm_service/tools/builtin/`
+* MCP 示例：`config/shannon.yaml`（注释示例）
+* OpenAPI 示例：`tests/e2e/06_openapi_petstore_test.sh`
+
+**社区：**
+
+* 报告问题：[https://github.com/anthropics/shannon/issues](https://github.com/anthropics/shannon/issues)
+* 贡献工具：[https://github.com/anthropics/shannon/pulls](https://github.com/anthropics/shannon/pulls)
+
+## 总结
+
+**三种添加工具的方式：**
+
+| 方法           | 命令                                                  | 配置文件                  | 代码变更     |
+| ------------ | --------------------------------------------------- | --------------------- | -------- |
+| **MCP**      | `docker compose up -d --force-recreate llm-service` | `config/shannon.yaml` | 无        |
+| **OpenAPI**  | `docker compose up -d --force-recreate llm-service` | `config/shannon.yaml` | 无        |
+| **Built-in** | `docker compose up -d --force-recreate llm-service` | `api/tools.py` + 新文件  | 仅 Python |
+
+**核心要点：**
+
+* ✅ 零 proto/Rust/Go 变更（通用 `google.protobuf.Struct` 容器）
+* ✅ 内置安全能力（域名白名单、速率限制、熔断器）
+* ✅ 自动成本跟踪（在 metadata 中设置 `cost_per_use`）
+* ✅ Schema 驱动（OpenAI 兼容 JSON schemas）
+
+**快速参考：**
+
 ```bash
 # List tools
 curl http://localhost:8000/tools/list
@@ -1061,24 +1243,30 @@ curl -X POST http://localhost:8000/tools/execute \
 # Via workflow
 ./scripts/submit_task.sh "Your query here"
 ```
-Happy tool building! 🛠️
+
+祝你构建工具顺利！🛠️
 
 ## Vendor Adapter Pattern
-**For domain-specific APIs and custom agents**
 
-Use vendor adapters to separate vendor logic from Shannon's core for proprietary or internal APIs requiring domain-specific transformations.
+**用于特定领域 APIs 和自定义 agents**
 
-### When to Use
-Use vendor adapters when your API integration requires:
-- Custom field name aliasing (e.g., `users` → `my:unique_users`)
-- Request/response transformations
-- Dynamic parameter injection from session context
-- Domain-specific validation or normalization
-- Specialized agent roles with custom system prompts
+使用 vendor adapters 将 vendor 逻辑从 Shannon core 中分离出来，适用于需要特定领域转换的专有或内部 APIs。
 
-### Quick Example
-**1. Create vendor adapter:**
-`python/llm-service/llm_service/tools/vendor_adapters/myvendor.py`:
+### 何时使用
+
+当你的 API 集成需要以下能力时，使用 vendor adapters：
+
+* 自定义字段名别名（例如 `users` → `my:unique_users`）
+* 请求/响应转换
+* 从 session context 动态注入参数
+* 特定领域校验或标准化
+* 带有自定义 system prompts 的专用 agent 角色
+
+### 快速示例
+
+**1. 创建 vendor adapter：**
+`python/llm-service/llm_service/tools/vendor_adapters/myvendor.py`：
+
 ```python
 class MyVendorAdapter:
     def transform_body(self, body, operation_id, prompt_params):
@@ -1092,8 +1280,10 @@ class MyVendorAdapter:
 
         return body
 ```
-**2. Register adapter:**
-`python/llm-service/llm_service/tools/vendor_adapters/__init__.py`:
+
+**2. 注册 adapter：**
+`python/llm-service/llm_service/tools/vendor_adapters/__init__.py`：
+
 ```python
 def get_vendor_adapter(name: str):
     if name.lower() == "myvendor":
@@ -1101,8 +1291,10 @@ def get_vendor_adapter(name: str):
         return MyVendorAdapter()
     return None
 ```
-**3. Configure with vendor flag:**
-`config/overlays/shannon.myvendor.yaml`:
+
+**3. 使用 vendor 标记配置：**
+`config/overlays/shannon.myvendor.yaml`：
+
 ```yaml
 openapi_tools:
   myvendor_api:
@@ -1114,24 +1306,29 @@ openapi_tools:
       token: "${MYVENDOR_API_TOKEN}"
     category: custom
 ```
-**4. Use environment:**
+
+**4. 使用环境：**
+
 ```bash
 SHANNON_CONFIG_PATH=config/overlays/shannon.myvendor.yaml
 MYVENDOR_API_TOKEN=your_token_here
 ```
 
-### Benefits
-- ✅ **Clean separation:** Vendor code isolated from Shannon core
-- ✅ **No core changes:** Shannon infrastructure remains generic
-- ✅ **Conditional loading:** Graceful fallback if vendor module unavailable
-- ✅ **Easy testing:** Unit test adapters in isolation
-- ✅ **Secrets management:** All tokens via environment variables
+### 优势
 
-### Complete Guide
-For a comprehensive guide including:
-- Custom agent roles for specialized domains
-- Session context injection patterns
-- Testing strategies
-- Best practices and troubleshooting
+* ✅ **清晰隔离：** Vendor code 与 Shannon core 隔离
+* ✅ **无需 core 变更：** Shannon infrastructure 保持通用
+* ✅ **条件加载：** 如果 vendor module 不可用，会优雅降级
+* ✅ **易于测试：** adapters 可独立进行单元测试
+* ✅ **Secrets 管理：** 所有 tokens 通过环境变量传入
 
-See: **[Vendor Adapters Guide](vendor-adapters.md)**
+### 完整指南
+
+获取包含以下内容的完整指南：
+
+* 面向专用领域的自定义 agent roles
+* Session context 注入模式
+* 测试策略
+* 最佳实践和故障排查
+
+请参见：**[Vendor Adapters Guide](vendor-adapters.md)**
