@@ -1,86 +1,86 @@
-# Template Workflows Documentation
+# 模板工作流文档
 
-## Overview
+## 概述
 
-Shannon's template workflow system enables zero-token routing for common patterns through YAML-defined workflows. This dual-system architecture combines deterministic template execution (System 1) with intelligent AI-driven decomposition (System 2), achieving 85-95% token savings on repeated tasks.
+Shannon 的模板工作流系统通过 YAML 定义的工作流，为常见模式实现零令牌路由。这种双系统架构将确定性模板执行（系统 1）与智能 AI 驱动的分解（系统 2）相结合，在重复任务上实现 85-95% 的令牌节省。
 
-## Architecture
+## 架构
 
-### Dual-System Design
+### 双系统设计
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     User Query                               │
+│                     用户查询                                  │
 └────────────────┬────────────────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Orchestrator Router                             │
-│  1. Check template registry for exact match                  │
-│  2. Consult learning router for learned patterns             │
-│  3. Fall back to AI decomposition if needed                  │
+│              编排器路由器                                      │
+│  1. 检查模板注册表是否有精确匹配                                  │
+│  2. 咨询学习路由器以获取学习到的模式                              │
+│  3. 如果需要，回退到 AI 分解                                   │
 └────────────────┬────────────────────────────────────────────┘
                  │
         ┌────────┴────────┬─────────────┐
         ▼                 ▼             ▼
 ┌───────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Template     │ │   Learning   │ │     AI       │
-│  Workflow     │ │   Router     │ │ Decomposition│
-│ (0 tokens)    │ │ (0 tokens)   │ │ (full cost)  │
-└───────────────┘ └──────────────┘ └──────────────┘
+│  模板         │ │  学习路由器   │ │   AI         │
+│  工作流        │ │  (0 令牌)    │ │  分解        │
+│  (0 令牌)     │ └──────────────┘ │  (完整成本)  │
+└───────────────┘                  └──────────────┘
 ```
 
-### System 1: Template-Based Execution
-- **Zero-token routing**: Direct template matching without LLM calls
-- **Deterministic execution**: Predictable, repeatable workflows
-- **Version-gated**: Temporal workflow versioning ensures backward compatibility
-- **Budget-aware**: Per-node token limits with automatic degradation
+### 系统 1：基于模板的执行
+- **零令牌路由**：无需 LLM 调用的直接模板匹配
+- **确定性执行**：可预测、可重复的工作流
+- **版本门控**：Temporal 工作流版本控制确保向后兼容
+- **预算感知**：每个节点的令牌限制，带自动降级
 
-### System 2: Learning Router
-- **Pattern recognition**: Learns successful decomposition patterns
-- **Epsilon-greedy strategy**: 90% exploit known patterns, 10% explore new approaches
-- **Supervisor memory**: Stores and retrieves proven strategies
-- **Continuous improvement**: Updates strategy effectiveness based on outcomes
+### 系统 2：学习路由器
+- **模式识别**：学习成功的分解模式
+- **Epsilon-Greedy 策略**：90% 利用已知模式，10% 探索新方法
+- **监督器内存**：存储和检索已验证的策略
+- **持续改进**：根据结果更新策略有效性
 
-## Template Structure
+## 模板结构
 
-### Basic Template Format
+### 基本模板格式
 
 ```yaml
-name: template_name           # Unique identifier
-description: "What this does"  # Human-readable description
-version: "1.0.0"              # Semantic version
+name: template_name           # 唯一标识符
+description: "它的作用"        # 人类可读的描述
+version: "1.0.0"              # 语义化版本
 defaults:
-  budget_agent_max: 10000     # Default per-node agent budget
-  require_approval: false     # Optional: gate on human approval
+  budget_agent_max: 10000     # 默认每个节点的代理预算
+  require_approval: false     # 可选：是否需要人工签批
 
 nodes:
   - id: node_1
-    type: simple              # Node type (simple/cognitive/dag/supervisor)
-    strategy: react           # Override strategy for this node
-    budget_max: 2000          # Node-specific budget
-    tools_allowlist:          # Allowed tools for this node
+    type: simple              # 节点类型（simple/cognitive/dag/supervisor）
+    strategy: react           # 覆盖该节点的策略
+    budget_max: 2000          # 节点特定预算
+    tools_allowlist:          # 该节点允许的工具
       - web_search
       - calculator
-    depends_on: []            # Node dependencies (for DAG ordering)
+    depends_on: []            # 节点依赖（用于 DAG 排序）
 
   - id: node_2
     type: cognitive
     strategy: tree_of_thoughts
     budget_max: 5000
-    depends_on: ["node_1"]    # Reference previous outputs via depends_on
+    depends_on: ["node_1"]    # 通过 depends_on 引用先前输出
 
 edges:
   - from: node_1
     to: node_2
 ```
 
-### Node Types
+### 节点类型
 
-#### Simple Node
-- Single-task execution
-- Direct tool invocation
-- Minimal context required
+#### Simple 节点
+- 单任务执行
+- 直接工具调用
+- 所需上下文最少
 
 ```yaml
 - id: fetch_data
@@ -89,13 +89,13 @@ edges:
   tools_allowlist: [weather_api]
   budget_max: 500
   metadata:
-    query: "Fetch current weather data"
+    query: "获取当前天气数据"
 ```
 
-#### Cognitive Node
-- Complex reasoning tasks
-- Multi-step analysis
-- Budget-aware automatic degradation (no extra field needed)
+#### Cognitive 节点
+- 复杂推理任务
+- 多步骤分析
+- 预算感知的自动降级（无需额外字段）
 
 ```yaml
 - id: analyze
@@ -103,14 +103,14 @@ edges:
   strategy: chain_of_thought
   budget_max: 3000
   metadata:
-    query: "Analyze trends and provide insights"
-  # Note: Degradation due to budget happens automatically; no pattern_degrade flag.
+    query: "分析趋势并提供见解"
+  # 注意：预算导致的降级自动发生；无需 pattern_degrade 标志。
 ```
 
-#### DAG Node
-- Parallel execution branches
-- Complex dependency graphs
-- Optimized for concurrent operations
+#### DAG 节点
+- 并行执行分支
+- 复杂依赖图
+- 针对并发操作优化
 
 ```yaml
 - id: parallel_research
@@ -120,20 +120,20 @@ edges:
   metadata:
     tasks:
       - id: search_1
-        query: "Research topic A"
+        query: "研究主题 A"
         tools: [web_search]
       - id: search_2
-        query: "Research topic B"
-        depends_on: [search_1]  # Dependencies within the DAG
+        query: "研究主题 B"
+        depends_on: [search_1]  # DAG 内的依赖
         tools: [web_search, web_fetch]
 ```
 
-**Note**: DAG sub-tasks are defined in `metadata.tasks`, not as a top-level `sub_nodes` field. Each task can have its own `depends_on` to create complex dependency graphs within the parallel execution.
+**注意**：DAG 子任务定义在 `metadata.tasks` 中，而非顶层的 `sub_nodes` 字段。每个任务可以有自己的 `depends_on`，以在并行执行中创建复杂的依赖图。
 
-#### Supervisor Node
-- Hierarchical task decomposition
-- Sub-agent coordination
-- Adaptive execution planning
+#### Supervisor 节点
+- 层次化任务分解
+- 子代理协调
+- 自适应执行规划
 
 ```yaml
 - id: complex_project
@@ -141,14 +141,14 @@ edges:
   strategy: reflection
   budget_max: 8000
   metadata:
-    query: "Coordinate multi-phase project"
+    query: "协调多阶段项目"
     sub_agents: ["research_agent", "analysis_agent", "synthesis_agent"]
 ```
 
-### Template Inheritance
-- Reuse established templates and override only what changes
-- Specify parents via `extends` (order matters when merging)
-- Inherit defaults, nodes, edges, and metadata from the parent templates
+### 模板继承
+- 复用已建立的模板，仅覆盖变更部分
+- 通过 `extends` 指定父模板（合并时顺序重要）
+- 从父模板继承默认值、节点、边和元数据
 
 ```yaml
 name: research_summary_executive
@@ -169,7 +169,7 @@ nodes:
       summary_style: executive
 ```
 
-Multiple parents are allowed:
+允许多个父模板：
 
 ```yaml
 extends:
@@ -177,32 +177,32 @@ extends:
   - research_summary_data_appendix
 ```
 
-Parents are applied in listed order, and the derived template is merged last. Parent edges remain unless the derived template provides its own edge list.
+父模板按列出的顺序应用，派生模板最后合并。除非派生模板提供自己的边列表，否则父模板的边保留。
 
-### Strategy Types
+### 策略类型
 
-#### ReAct (Reasoning + Acting)
-- **Token usage**: ~500-1500 per cycle
-- **Best for**: Simple tool-based tasks
-- **Degradation**: Final fallback option
+#### ReAct（推理 + 行动）
+- **令牌使用**：每周期约 500-1500
+- **最佳场景**：基于工具的简单任务
+- **降级**：最终回退选项
 
 ```yaml
 strategy: react
 ```
 
-#### Chain of Thought (CoT)
-- **Token usage**: ~1500-3000 per analysis
-- **Best for**: Step-by-step reasoning
-- **Degradation**: From ToT when budget constrained
+#### Chain of Thought（CoT）
+- **令牌使用**：每次分析约 1500-3000
+- **最佳场景**：逐步推理
+- **降级**：预算受限时从 ToT 降级
 
 ```yaml
 strategy: chain_of_thought
 ```
 
-#### Tree of Thoughts (ToT)
-- **Token usage**: ~3000-8000 per exploration
-- **Best for**: Complex problem-solving
-- **Degradation**: To CoT, then ReAct
+#### Tree of Thoughts（ToT）
+- **令牌使用**：每次探索约 3000-8000
+- **最佳场景**：复杂问题求解
+- **降级**：到 CoT，再到 ReAct
 
 ```yaml
 strategy: tree_of_thoughts
@@ -211,23 +211,23 @@ metadata:
   depth: 2
 ```
 
-## Pattern Degradation
+## 模式降级
 
-### Automatic Budget Management
+### 自动预算管理
 
-The system automatically degrades execution patterns when budget constraints are detected:
+系统在检测到预算约束时自动降级执行模式：
 
 ```
-Tree of Thoughts (8000 tokens)
-       ↓ (budget < 5000)
-Chain of Thought (3000 tokens)
-       ↓ (budget < 2000)
-ReAct (1000 tokens)
+Tree of Thoughts（8000 令牌）
+       ↓ （预算 < 5000）
+Chain of Thought（3000 令牌）
+       ↓ （预算 < 2000）
+ReAct（1000 令牌）
 ```
 
-### on_fail (validated; limited runtime use)
+### on_fail（已验证；运行时使用有限）
 
-The YAML supports `on_fail` with `degrade_to`, `retry`, and `escalate_to`. These fields are validated today, but budget-based degradation is the active mechanism:
+YAML 支持带有 `degrade_to`、`retry` 和 `escalate_to` 的 `on_fail`。这些字段当前已验证，但基于预算的降级是当前生效的机制：
 
 ```yaml
 nodes:
@@ -236,70 +236,70 @@ nodes:
     strategy: tree_of_thoughts
     budget_max: 5000
     on_fail:
-      degrade_to: chain_of_thought  # Fallback strategy
-      retry: 1                       # Number of retries
+      degrade_to: chain_of_thought  # 回退策略
+      retry: 1                       # 重试次数
 ```
 
-## Learning Router
+## 学习路由器
 
-### Strategy Recommendation
+### 策略推荐
 
-The learning router maintains a history of successful patterns:
+学习路由器维护成功模式的历史记录：
 
 ```go
 type StrategyRecommendation struct {
-    Pattern     string        // Query pattern signature
-    Strategy    StrategyType  // Recommended strategy
-    Confidence  float64       // Success rate (0-1)
-    TokenSaved  int          // Average tokens saved
+    Pattern     string        // 查询模式签名
+    Strategy    StrategyType  // 推荐的策略
+    Confidence  float64       // 成功率（0-1）
+    TokenSaved  int          // 平均节省的令牌数
 }
 ```
 
-### Epsilon-Greedy Selection
+### Epsilon-Greedy 选择
 
 ```yaml
 learning_router:
   enabled: true
-  epsilon: 0.1               # 10% exploration rate
-  min_confidence: 0.7        # Minimum confidence to use learned pattern
-  history_size: 1000         # Number of patterns to remember
+  epsilon: 0.1               # 10% 探索率
+  min_confidence: 0.7        # 使用学习模式的最低置信度
+  history_size: 1000         # 记住的模式数量
 ```
 
-## Registry Management
+## 注册表管理
 
-### Template Loading
+### 模板加载
 
-Templates are loaded at startup from configured directories:
+模板在启动时从配置的目录加载：
 
 ```bash
-# Default locations
+# 默认位置
 /app/config/workflows/
 /app/config/workflows/examples/
 
-# Custom via environment
+# 通过环境自定义
 export TEMPLATES_PATH="/custom/templates:/shared/templates"
 ```
 
-### Hot Reload (Future)
+### 热重载（未来）
 
 ```yaml
 registry:
-  hot_reload: true           # Enable file watching
-  reload_interval: 30s       # Check interval
-  validation: strict         # Validation level
+  hot_reload: true           # 启用文件监视
+  reload_interval: 30s       # 检查间隔
+  validation: strict         # 验证级别
 ```
 
-## Validation
+## 验证
 
-### Template Validation Rules
+### 模板验证规则
 
-1. **Structure validation**: Required fields, valid YAML
-2. **DAG validation**: No cycles, valid dependencies
-3. **Budget validation**: Node budgets ≤ total budget
-4. **Tool validation**: Tools exist and are available
-5. **Reference validation**: Variable references resolve
+1. **结构验证**：必需字段、有效 YAML
+2. **DAG 验证**：无循环、有效依赖
+3. **预算验证**：节点预算 ≤ 总预算
+4. **工具验证**：工具存在且可用
+5. **引用验证**：变量引用可解析
 
-### Validation Errors
+### 验证错误
 
 ```go
 type ValidationIssue struct {
@@ -312,14 +312,14 @@ type ValidationError struct {
 }
 ```
 
-## Examples
+## 示例
 
-### Research Summary Template
+### 研究摘要模板
 
 ```yaml
 name: research_summary
 version: "1.0.0"
-description: "Research a topic and provide a structured summary"
+description: "研究一个主题并提供结构化摘要"
 
 defaults:
   budget_agent_max: 10000
@@ -352,12 +352,12 @@ edges:
     to: synthesize
 ```
 
-### Complex DAG Workflow
+### 复杂 DAG 工作流
 
 ```yaml
 name: market_analysis
 version: "1.0.0"
-description: "Parallel market research and analysis"
+description: "并行市场研究与分析"
 
 defaults:
   budget_agent_max: 15000
@@ -370,13 +370,13 @@ nodes:
     metadata:
       tasks:
         - id: competitor_1
-          query: "Analyze competitor A"
+          query: "分析竞争对手 A"
           tools: [web_search]
         - id: competitor_2
-          query: "Analyze competitor B"
+          query: "分析竞争对手 B"
           tools: [web_search]
         - id: competitor_3
-          query: "Analyze competitor C"
+          query: "分析竞争对手 C"
           tools: [web_search]
 
   - id: market_trends
@@ -390,11 +390,11 @@ nodes:
     depends_on: ["competitors", "market_trends"]
 ```
 
-### Derived Template: Executive Research
+### 派生模板：高管研究
 
 ```yaml
 name: research_summary_executive
-description: "Executive version with brief output"
+description: "输出简短的高管版本"
 extends:
   - research_summary
 
@@ -414,11 +414,11 @@ nodes:
       include_risks: true
 ```
 
-### Playbook Workflow with Composition
+### 带组合的 Playbook 工作流
 
 ```yaml
 name: market_analysis_playbook
-description: "Market analysis with compliance and templated reporting"
+description: "带合规性和模板化报告的市场分析"
 extends:
   - market_analysis
 
@@ -443,130 +443,130 @@ edges:
     to: report
 ```
 
-## Best Practices
+## 最佳实践
 
-### Template Design
+### 模板设计
 
-1. **Start simple**: Begin with basic templates and add complexity gradually
-2. **Set realistic budgets**: Monitor actual usage and adjust
-3. **Use dependencies wisely**: Minimize sequential dependencies for better parallelism
-4. **Enable degradation**: Allow patterns to degrade for budget flexibility
-5. **Version carefully**: Use semantic versioning for breaking changes
+1. **从简单开始**：从基础模板开始，逐步增加复杂度
+2. **设置现实的预算**：监控实际使用情况并调整
+3. **合理使用依赖**：最小化顺序依赖以获得更好的并行性
+4. **启用降级**：允许模式降级以获得预算灵活性
+5. **谨慎版本管理**：对破坏性变更使用语义化版本
 
-### Performance Optimization
+### 性能优化
 
-1. **Parallel execution**: Use DAG nodes for independent tasks
-2. **Tool allowlists**: Restrict tools to necessary ones only
-3. **Reference minimization**: Pass only required data between nodes
-4. **Budget allocation**: Give more budget to complex reasoning nodes
+1. **并行执行**：对独立任务使用 DAG 节点
+2. **工具白名单**：仅限制为必要的工具
+3. **最小化引用**：仅传递节点之间所需的数据
+4. **预算分配**：为复杂推理节点分配更多预算
 
-### Monitoring
+### 监控
 
-1. **Token usage**: Track actual vs. budgeted usage
-2. **Degradation frequency**: Monitor pattern degradation rates
-3. **Success rates**: Measure template completion rates
-4. **Learning effectiveness**: Track router prediction accuracy
+1. **令牌使用**：跟踪实际使用量与预算使用量
+2. **降级频率**：监控模式降级率
+3. **成功率**：衡量模板完成率
+4. **学习效果**：跟踪路由器预测准确性
 
-## API Reference
+## API 参考
 
-### Template Registration
+### 模板注册
 
 ```go
-// Load templates from directory
+// 从目录加载模板
 registry, err := workflows.InitTemplateRegistry(logger, "/path/to/templates")
 
-// Get specific template
+// 获取特定模板
 entry, found := registry.Get("research_summary@1.0.0")
 
-// List all templates
+// 列出所有模板
 summaries := registry.List()
 ```
 
-### Execution
+### 执行
 
-Use the OrchestratorService SubmitTask API and specify the template in the request context. The router will execute TemplateWorkflow deterministically:
+使用 OrchestratorService SubmitTask API，在请求上下文中指定模板。路由器将确定性地执行 TemplateWorkflow：
 
 ```
 grpcurl -plaintext -d '{
-  "query": "Summarize quantum computing",
+  "query": "总结量子计算",
   "context": { "template": "research_summary", "template_version": "1.0.0" }
 }' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
 ```
 
-### Monitoring
+### 监控
 
-Operational metrics (execution counts, tokens, success rates) are exported via Prometheus-compatible endpoints. See metrics naming in the codebase (e.g., internal/metrics).
+操作指标（执行计数、令牌、成功率）通过 Prometheus 兼容端点导出。参见代码库中的指标命名（例如 internal/metrics）。
 
-## Migration Guide
+## 迁移指南
 
-### Converting Existing Workflows
+### 转换现有工作流
 
-1. **Identify patterns**: Look for repeated task structures
-2. **Extract templates**: Create YAML definitions
-3. **Test locally**: Validate templates before deployment
-4. **Monitor performance**: Compare token usage before/after
-5. **Iterate**: Refine based on actual usage
+1. **识别模式**：查找重复的任务结构
+2. **提取模板**：创建 YAML 定义
+3. **本地测试**：部署前验证模板
+4. **监控性能**：比较前后的令牌使用量
+5. **迭代**：根据实际使用情况优化
 
-### Rollback Strategy
+### 回滚策略
 
-Templates are version-gated in Temporal workflows:
+模板在 Temporal 工作流中具有版本门控：
 
 ```go
 version := workflow.GetVersion(ctx, "template_router_v1",
     workflow.DefaultVersion, 1)
 if version >= 1 {
-    // Use template system
+    // 使用模板系统
 } else {
-    // Use legacy routing
+    // 使用旧版路由
 }
 ```
 
-## Troubleshooting
+## 故障排查
 
-### Common Issues
+### 常见问题
 
-#### Templates Not Loading
-- Check `TEMPLATES_PATH` environment variable
-- Verify YAML syntax with validators
-- Check container logs for validation errors
+#### 模板未加载
+- 检查 `TEMPLATES_PATH` 环境变量
+- 使用验证器验证 YAML 语法
+- 检查容器日志中的验证错误
 
-#### Budget Exceeded
-- Review node budget allocations
-- Enable pattern degradation
-- Check for infinite loops in DAG
+#### 预算超限
+- 审查节点预算分配
+- 启用模式降级
+- 检查 DAG 中是否存在无限循环
 
-#### Poor Learning Router Performance
-- Increase exploration rate temporarily
-- Clear stale patterns from memory
-- Review confidence thresholds
+#### 学习路由器性能不佳
+- 临时增加探索率
+- 从内存中清除过时模式
+- 检查置信度阈值
 
-### Debug Logging
+### 调试日志
 
 ```bash
-# Enable debug logging
+# 启用调试日志
 export DEBUG_TEMPLATES=true
 export LOG_LEVEL=debug
 
-# View template loading
+# 查看模板加载
 docker compose logs orchestrator | grep -i template
 
-# Monitor execution
+# 监控执行
 docker compose exec orchestrator cat /var/log/templates.log
 ```
 
-## Future Enhancements
+## 未来增强
 
-### Planned Features
+### 计划功能
 
-1. **Hot reload**: Dynamic template updates without restart
-2. **Template marketplace**: Share templates across organizations
-3. **Visual editor**: Web-based template designer
-4. **A/B testing**: Automatic performance comparison
-5. **Cost optimization**: ML-based budget allocation
+1. **热重载**：无需重启的动态模板更新
+2. **模板市场**：跨组织共享模板
+3. **可视化编辑器**：基于 Web 的模板设计器
+4. **A/B 测试**：自动性能比较
+5. **成本优化**：基于 ML 的预算分配
 
-### Experimental Features
+### 实验功能
 
-1. **Adaptive budgets**: Dynamic budget adjustment based on complexity
-2. **Template composition**: Combine templates into larger workflows
-3. **Conditional branching**: Complex if/then/else logic
-4. **External triggers**: Event-driven template execution
+1. **自适应预算**：基于复杂度的动态预算调整
+2. **模板组合**：将模板组合成更大的工作流
+3. **条件分支**：复杂的 if/then/else 逻辑
+4. **外部触发器**：事件驱动的模板执行
