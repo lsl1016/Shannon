@@ -1,59 +1,59 @@
-# Scheduled Tasks
+# 计划任务
 
-Shannon supports recurring task execution using Temporal's native Schedule API. Users can create cron-based schedules that automatically execute tasks at specified intervals.
+Shannon 支持使用 Temporal 的原生 Schedule API 执行周期性任务。用户可以创建基于 cron 的计划，按指定间隔自动执行任务。
 
-## Features
+## 功能特性
 
-- **Cron-based scheduling** with timezone support
-- **Resource limits** to prevent abuse
-- **Budget control** per execution
-- **Execution history** with cost tracking
-- **Pause/Resume/Delete** operations
-- **Multi-tenant isolation** with user/tenant ownership
+- **基于 Cron 的计划**，支持时区
+- **资源限制**，防止滥用
+- **预算控制**，每次执行均可设置
+- **执行历史**，附带成本追踪
+- **暂停/恢复/删除**操作
+- **多租户隔离**，包含用户/租户所有权
 
-## Architecture
+## 架构
 
 ```
-User → Gateway → Orchestrator gRPC → Schedule Manager → Temporal Schedule API
+用户 → Gateway → Orchestrator gRPC → Schedule Manager → Temporal Schedule API
                                                              ↓
-                                           ScheduledTaskWorkflow (wrapper)
+                                           ScheduledTaskWorkflow (包装器)
                                                              ↓
-                                           OrchestratorWorkflow (existing)
+                                           OrchestratorWorkflow (现有)
 ```
 
-### Components
+### 组件
 
-- **Schedule Manager** (`internal/schedules/manager.go`): Business logic, Temporal API integration, resource limit enforcement
-- **ScheduledTaskWorkflow** (`internal/workflows/scheduled/`): Wrapper workflow that tracks execution, enforces tenant quota, and delegates to existing workflows
-- **Schedule Activities** (`internal/activities/schedule_activities.go`): Temporal activities including `PauseScheduleForQuota` for quota enforcement
-- **Database Tables**:
-  - `scheduled_tasks`: Schedule configuration (cron, query, budget, etc.)
-  - `scheduled_task_executions`: Execution history with timestamps, status, cost
+- **Schedule Manager** (`internal/schedules/manager.go`)：业务逻辑、Temporal API 集成、资源限制执行
+- **ScheduledTaskWorkflow** (`internal/workflows/scheduled/`)：包装器工作流，用于跟踪执行、强制执行租户配额，并委托给现有工作流
+- **Schedule Activities** (`internal/activities/schedule_activities.go`)：Temporal 活动，包括用于配额执行的 `PauseScheduleForQuota`
+- **数据库表**：
+  - `scheduled_tasks`：计划配置（cron、查询、预算等）
+  - `scheduled_task_executions`：执行历史，包含时间戳、状态、成本
 
-## Configuration
+## 配置
 
-### Environment Variables
+### 环境变量
 
-| Variable | Default | Description |
+| 变量 | 默认值 | 描述 |
 |----------|---------|-------------|
-| `SCHEDULE_MAX_PER_USER` | `50` | Maximum schedules per user |
-| `SCHEDULE_MIN_INTERVAL_MINS` | `60` | Minimum interval between runs (minutes) |
-| `SCHEDULE_MAX_BUDGET_USD` | `10.0` | Maximum budget per execution (USD) |
+| `SCHEDULE_MAX_PER_USER` | `50` | 每个用户的最大计划数 |
+| `SCHEDULE_MIN_INTERVAL_MINS` | `60` | 运行之间的最小间隔（分钟） |
+| `SCHEDULE_MAX_BUDGET_USD` | `10.0` | 每次执行的最大预算（美元） |
 
-### Example
+### 示例
 
 ```bash
-# Allow 100 schedules per user with $20 budget per run
+# 允许每个用户 100 个计划，每次运行预算 20 美元
 SCHEDULE_MAX_PER_USER=100
 SCHEDULE_MAX_BUDGET_USD=20.0
 SCHEDULE_MIN_INTERVAL_MINS=30
 ```
 
-## API Endpoints
+## API 端点
 
-All endpoints require authentication and enforce user/tenant ownership.
+所有端点都需要身份验证，并强制执行用户/租户所有权。
 
-### Create Schedule
+### 创建计划
 
 ```bash
 POST /api/v1/schedules
@@ -61,11 +61,11 @@ Content-Type: application/json
 Authorization: Bearer <token>
 
 {
-  "name": "Daily summary",
-  "description": "Generate daily activity summary",
+  "name": "每日摘要",
+  "description": "生成每日活动摘要",
   "cron_expression": "0 9 * * *",
   "timezone": "America/New_York",
-  "task_query": "Summarize yesterday's activity",
+  "task_query": "总结昨天的活动",
   "task_context": {
     "report_format": "markdown"
   },
@@ -74,29 +74,29 @@ Authorization: Bearer <token>
 }
 ```
 
-**Response:**
+**响应：**
 ```json
 {
   "schedule_id": "550e8400-e29b-41d4-a716-446655440000",
-  "message": "Schedule created successfully",
+  "message": "计划创建成功",
   "next_run_at": "2025-12-16T09:00:00-05:00"
 }
 ```
 
-### List Schedules
+### 列出计划
 
 ```bash
 GET /api/v1/schedules?page=1&page_size=50&status=ACTIVE
 Authorization: Bearer <token>
 ```
 
-**Response:**
+**响应：**
 ```json
 {
   "schedules": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "name": "Daily summary",
+      "name": "每日摘要",
       "cron_expression": "0 9 * * *",
       "timezone": "America/New_York",
       "status": "ACTIVE",
@@ -112,14 +112,14 @@ Authorization: Bearer <token>
 }
 ```
 
-### Get Schedule
+### 获取计划
 
 ```bash
 GET /api/v1/schedules/{id}
 Authorization: Bearer <token>
 ```
 
-### Update Schedule
+### 更新计划
 
 ```bash
 PUT /api/v1/schedules/{id}
@@ -132,7 +132,7 @@ Authorization: Bearer <token>
 }
 ```
 
-### Pause Schedule
+### 暂停计划
 
 ```bash
 POST /api/v1/schedules/{id}/pause
@@ -140,11 +140,11 @@ Content-Type: application/json
 Authorization: Bearer <token>
 
 {
-  "reason": "Temporary maintenance"
+  "reason": "临时维护"
 }
 ```
 
-### Resume Schedule
+### 恢复计划
 
 ```bash
 POST /api/v1/schedules/{id}/resume
@@ -152,152 +152,152 @@ Content-Type: application/json
 Authorization: Bearer <token>
 
 {
-  "reason": "Maintenance complete"
+  "reason": "维护完成"
 }
 ```
 
-### Delete Schedule
+### 删除计划
 
 ```bash
 DELETE /api/v1/schedules/{id}
 Authorization: Bearer <token>
 ```
 
-## Cron Expression Format
+## Cron 表达式格式
 
-Uses standard cron syntax (5 fields):
+使用标准 cron 语法（5 个字段）：
 
 ```
-┌───────────── minute (0 - 59)
-│ ┌───────────── hour (0 - 23)
-│ │ ┌───────────── day of month (1 - 31)
-│ │ │ ┌───────────── month (1 - 12)
-│ │ │ │ ┌───────────── day of week (0 - 6) (Sunday to Saturday)
+┌───────────── 分钟 (0 - 59)
+│ ┌───────────── 小时 (0 - 23)
+│ │ ┌───────────── 日期 (1 - 31)
+│ │ │ ┌───────────── 月份 (1 - 12)
+│ │ │ │ ┌───────────── 星期 (0 - 6) (周日至周六)
 │ │ │ │ │
 * * * * *
 ```
 
-### Examples
+### 示例
 
-| Expression | Description |
+| 表达式 | 描述 |
 |------------|-------------|
-| `0 9 * * *` | Daily at 9:00 AM |
-| `0 */4 * * *` | Every 4 hours |
-| `0 0 * * 1` | Every Monday at midnight |
-| `30 8 1 * *` | First day of month at 8:30 AM |
-| `0 12 * * 1-5` | Weekdays at noon |
+| `0 9 * * *` | 每天上午 9:00 |
+| `0 */4 * * *` | 每 4 小时 |
+| `0 0 * * 1` | 每周一午夜 |
+| `30 8 1 * *` | 每月第一天上午 8:30 |
+| `0 12 * * 1-5` | 工作日中午 12:00 |
 
-## Database Schema
+## 数据库模式
 
 ### scheduled_tasks
 
-| Column | Type | Description |
+| 列 | 类型 | 描述 |
 |--------|------|-------------|
-| `id` | UUID | Primary key |
-| `user_id` | UUID | Owner user ID |
-| `tenant_id` | UUID | Tenant ID (nullable) |
-| `name` | VARCHAR(255) | Schedule name |
-| `description` | TEXT | Optional description |
-| `cron_expression` | VARCHAR(100) | Cron schedule |
-| `timezone` | VARCHAR(50) | IANA timezone (e.g., "America/New_York") |
-| `task_query` | TEXT | Task query to execute |
-| `task_context` | JSONB | Additional context parameters |
-| `max_budget_per_run_usd` | DECIMAL(10,2) | Budget limit per execution |
-| `timeout_seconds` | INTEGER | Workflow timeout |
-| `temporal_schedule_id` | VARCHAR(255) | Temporal schedule ID (unique) |
-| `status` | VARCHAR(20) | ACTIVE, PAUSED, or DELETED |
-| `next_run_at` | TIMESTAMP | Next scheduled execution |
-| `last_run_at` | TIMESTAMP | Last execution time |
-| `total_runs` | INTEGER | Total executions |
-| `successful_runs` | INTEGER | Successful executions |
-| `failed_runs` | INTEGER | Failed executions |
+| `id` | UUID | 主键 |
+| `user_id` | UUID | 所有者用户 ID |
+| `tenant_id` | UUID | 租户 ID（可为空） |
+| `name` | VARCHAR(255) | 计划名称 |
+| `description` | TEXT | 可选描述 |
+| `cron_expression` | VARCHAR(100) | Cron 计划 |
+| `timezone` | VARCHAR(50) | IANA 时区（例如 "America/New_York"） |
+| `task_query` | TEXT | 要执行的任务查询 |
+| `task_context` | JSONB | 额外的上下文参数 |
+| `max_budget_per_run_usd` | DECIMAL(10,2) | 每次执行的预算限制 |
+| `timeout_seconds` | INTEGER | 工作流超时时间 |
+| `temporal_schedule_id` | VARCHAR(255) | Temporal 计划 ID（唯一） |
+| `status` | VARCHAR(20) | ACTIVE、PAUSED 或 DELETED |
+| `next_run_at` | TIMESTAMP | 下一次计划执行时间 |
+| `last_run_at` | TIMESTAMP | 上次执行时间 |
+| `total_runs` | INTEGER | 总执行次数 |
+| `successful_runs` | INTEGER | 成功执行次数 |
+| `failed_runs` | INTEGER | 失败执行次数 |
 
 ### scheduled_task_executions
 
-| Column | Type | Description |
+| 列 | 类型 | 描述 |
 |--------|------|-------------|
-| `id` | UUID | Primary key |
-| `schedule_id` | UUID | Foreign key to scheduled_tasks |
-| `task_id` | VARCHAR(255) | Temporal workflow ID |
-| `status` | VARCHAR(20) | RUNNING, COMPLETED, FAILED, CANCELLED |
-| `total_cost_usd` | DECIMAL(10,4) | Execution cost |
-| `error_message` | TEXT | Error details (if failed) |
-| `started_at` | TIMESTAMP | Execution start time |
-| `completed_at` | TIMESTAMP | Execution completion time |
+| `id` | UUID | 主键 |
+| `schedule_id` | UUID | 外键，关联 scheduled_tasks |
+| `task_id` | VARCHAR(255) | Temporal 工作流 ID |
+| `status` | VARCHAR(20) | RUNNING、COMPLETED、FAILED、CANCELLED |
+| `total_cost_usd` | DECIMAL(10,4) | 执行成本 |
+| `error_message` | TEXT | 错误详情（如果失败） |
+| `started_at` | TIMESTAMP | 执行开始时间 |
+| `completed_at` | TIMESTAMP | 执行完成时间 |
 
-## Implementation Details
+## 实现细节
 
-### Validation
+### 验证
 
-1. **Cron expression**: Validated using `robfig/cron/v3` parser before creating Temporal schedule
-2. **Resource limits**: Checked before schedule creation:
-   - User must have < `SCHEDULE_MAX_PER_USER` active schedules
-   - Budget must be ≤ `SCHEDULE_MAX_BUDGET_USD`
-3. **Ownership**: All operations verify user_id and tenant_id match authenticated context
+1. **Cron 表达式**：在创建 Temporal 计划之前使用 `robfig/cron/v3` 解析器进行验证
+2. **资源限制**：在创建计划之前进行检查：
+   - 用户的活动计划数必须 < `SCHEDULE_MAX_PER_USER`
+   - 预算必须 ≤ `SCHEDULE_MAX_BUDGET_USD`
+3. **所有权**：所有操作都会验证 user_id 和 tenant_id 是否与已认证的上下文匹配
 
-### Execution Flow
+### 执行流程
 
-1. Temporal triggers `ScheduledTaskWorkflow` at scheduled time
-2. Workflow records execution start in `scheduled_task_executions` and `task_executions`
-3. **Quota pre-check** (`scheduled_quota_check_v1`): Checks tenant daily/monthly token quota via `CheckTenantQuota` activity. If exceeded → records FAILED status, emits `QUOTA_EXCEEDED` event, returns nil (no Temporal retry)
-4. Workflow executes `OrchestratorWorkflow` as child workflow with task query
-5. Child workflow result captured (success/failure, cost, tokens)
-6. **Quota usage recording** (`scheduled_quota_record_v1`): Records consumed tokens via `RecordTenantQuotaUsage` activity (for both COMPLETED and FAILED runs). Falls back to `result.TokensUsed` when metadata lacks `total_tokens`
-7. Workflow records execution completion with status, cost, and metadata
-8. Schedule statistics updated (`total_runs`, `successful_runs`, `failed_runs`)
+1. Temporal 在计划时间触发 `ScheduledTaskWorkflow`
+2. 工作流在 `scheduled_task_executions` 和 `task_executions` 中记录执行开始
+3. **配额预检查**（`scheduled_quota_check_v1`）：通过 `CheckTenantQuota` 活动检查租户每日/每月令牌配额。如果超出 → 记录 FAILED 状态，发出 `QUOTA_EXCEEDED` 事件，返回 nil（无 Temporal 重试）
+4. 工作流将 `OrchestratorWorkflow` 作为子工作流执行，附带任务查询
+5. 捕获子工作流结果（成功/失败、成本、令牌）
+6. **配额用量记录**（`scheduled_quota_record_v1`）：通过 `RecordTenantQuotaUsage` 活动记录已消耗的令牌（适用于 COMPLETED 和 FAILED 运行）。当元数据缺少 `total_tokens` 时，回退使用 `result.TokensUsed`
+7. 工作流记录执行完成，包含状态、成本和元数据
+8. 更新计划统计信息（`total_runs`、`successful_runs`、`failed_runs`）
 
-### Error Handling
+### 错误处理
 
-- **Schedule creation failure**: Rollback Temporal schedule if DB insert fails
-- **Execution failure**: Recorded in execution history, schedule remains active
-- **Budget exceeded**: Child workflow fails with budget error
-- **Quota exceeded**: Scheduled run rejected with FAILED status, `QUOTA_EXCEEDED` event emitted for webhook/LINE notification. Schedule remains active (next run will re-check)
-- **Quota check failure**: Fail-open — if the quota check activity errors, execution proceeds (matches gateway behavior)
-- **Temporal unavailable**: Schedule operations return service unavailable
+- **计划创建失败**：如果数据库插入失败，回滚 Temporal 计划
+- **执行失败**：记录在执行历史中，计划保持活动状态
+- **预算超限**：子工作流因预算错误而失败
+- **配额超限**：计划运行被拒绝，状态为 FAILED，发出 `QUOTA_EXCEEDED` 事件用于 webhook/LINE 通知。计划保持活动状态（下次运行将重新检查）
+- **配额检查失败**：故障开放 —— 如果配额检查活动出错，执行继续（与网关行为一致）
+- **Temporal 不可用**：计划操作返回服务不可用
 
-## Deployment
+## 部署
 
-### Database Migration
+### 数据库迁移
 
 ```bash
 PGPASSWORD=shannon psql -h localhost -U shannon -d shannon \
   -f migrations/postgres/009_scheduled_tasks.sql
 ```
 
-### Service Restart
+### 服务重启
 
-Scheduling requires orchestrator service restart to load schedule manager:
+计划功能需要重启 orchestrator 服务以加载 schedule manager：
 
 ```bash
 docker compose -f deploy/compose/docker-compose.yml restart orchestrator
 ```
 
-## Monitoring
+## 监控
 
-### Metrics
+### 指标
 
-- Check Temporal UI for schedule execution history
-- Query `scheduled_task_executions` for cost analysis
-- Monitor schedule statistics in `scheduled_tasks` table
+- 通过 Temporal UI 查看计划执行历史
+- 查询 `scheduled_task_executions` 进行成本分析
+- 监控 `scheduled_tasks` 表中的计划统计信息
 
 ### Temporal UI
 
-Navigate to `http://localhost:8088` → Schedules to view:
-- Schedule status (running/paused)
-- Recent executions
-- Next scheduled time
-- Execution backlog
+导航到 `http://localhost:8088` → Schedules 以查看：
+- 计划状态（运行中/已暂停）
+- 最近的执行记录
+- 下一次计划时间
+- 执行积压
 
-### Database Queries
+### 数据库查询
 
 ```sql
--- Active schedules by user
+-- 按用户统计活动计划
 SELECT user_id, COUNT(*)
 FROM scheduled_tasks
 WHERE status = 'ACTIVE'
 GROUP BY user_id;
 
--- Total cost per schedule
+-- 每个计划的总成本
 SELECT s.name, SUM(e.total_cost_usd) as total_cost
 FROM scheduled_tasks s
 JOIN scheduled_task_executions e ON s.id = e.schedule_id
@@ -305,7 +305,7 @@ WHERE e.status = 'COMPLETED'
 GROUP BY s.id, s.name
 ORDER BY total_cost DESC;
 
--- Failure rate
+-- 失败率
 SELECT
   name,
   total_runs,
@@ -316,18 +316,18 @@ WHERE total_runs > 0
 ORDER BY failure_rate DESC;
 ```
 
-## Limitations
+## 限制
 
-- Minimum interval: 60 minutes (configurable)
-- Maximum schedules per user: 50 (configurable)
-- Maximum budget per execution: $10 USD (configurable)
-- Timezone support: IANA timezone database
-- Cron precision: Minute-level (no seconds)
+- 最小间隔：60 分钟（可配置）
+- 每个用户最大计划数：50（可配置）
+- 每次执行最大预算：10 美元（可配置）
+- 时区支持：IANA 时区数据库
+- Cron 精度：分钟级（不支持秒）
 
-## Future Enhancements
+## 未来增强
 
-- Schedule templates (daily/weekly/monthly presets)
-- Execution result notifications (email, webhook)
-- Dynamic budget adjustment based on historical costs
-- Schedule dependencies (chain multiple schedules)
-- Retry policies for failed executions
+- 计划模板（每日/每周/每月预设）
+- 执行结果通知（邮件、webhook）
+- 基于历史成本的动态预算调整
+- 计划依赖（串联多个计划）
+- 失败执行的重试策略
