@@ -1,44 +1,44 @@
-# Shannon Streaming APIs
+# Shannon 流式 API
 
-This document describes the minimal, deterministic streaming interfaces exposed by the orchestrator. It covers gRPC, Server‑Sent Events (SSE), and WebSocket (WS) endpoints, including filters and resume semantics for rejoining sessions.
+本文档描述编排器暴露的最小化、确定性流式接口。涵盖 gRPC、Server-Sent Events (SSE) 和 WebSocket (WS) 端点，包括过滤器和用于重新加入会话的恢复语义。
 
-## Event Persistence Strategy
+## 事件持久化策略
 
-Shannon uses a **two-tier persistence model** optimized for performance:
+Shannon 使用**两层持久化模型**，针对性能进行了优化：
 
-### Redis (All Events)
-- **Purpose**: Real-time SSE/WebSocket delivery
-- **Retention**: Last 256 events per workflow, 24-hour TTL
-- **Events**: ALL events including `LLM_PARTIAL` (streaming tokens)
-- **Storage**: ~30-50KB per 500-token response
+### Redis（所有事件）
+- **目的**：实时 SSE/WebSocket 交付
+- **保留期**：每个工作流最近 256 个事件，24 小时 TTL
+- **事件**：所有事件，包括 `LLM_PARTIAL`（流式令牌）
+- **存储**：每个 500 令牌响应约 30-50KB
 
-### PostgreSQL (Important Events Only)
-- **Purpose**: Historical audit trail and replay
-- **Retention**: Permanent (or per retention policy)
-- **Events**: Only critical events persisted:
-  - ✅ `WORKFLOW_COMPLETED`, `WORKFLOW_FAILED`
-  - ✅ `AGENT_COMPLETED`, `AGENT_FAILED`
-  - ✅ `TOOL_INVOKED`, `TOOL_OBSERVATION`, `TOOL_ERROR`
-  - ✅ `ERROR_OCCURRED`, `LLM_OUTPUT`, `STREAM_END`
-  - ❌ `LLM_PARTIAL` (thread.message.delta) - **NOT persisted**
-  - ❌ `HEARTBEAT`, `PING` - **NOT persisted**
-- **Reduction**: ~95% fewer DB writes (500 deltas → 5-10 important events)
+### PostgreSQL（仅重要事件）
+- **目的**：历史审计追踪和重放
+- **保留期**：永久（或按保留策略）
+- **事件**：仅持久化关键事件：
+  - ✅ `WORKFLOW_COMPLETED`、`WORKFLOW_FAILED`
+  - ✅ `AGENT_COMPLETED`、`AGENT_FAILED`
+  - ✅ `TOOL_INVOKED`、`TOOL_OBSERVATION`、`TOOL_ERROR`
+  - ✅ `ERROR_OCCURRED`、`LLM_OUTPUT`、`STREAM_END`
+  - ❌ `LLM_PARTIAL`（thread.message.delta）- **不持久化**
+  - ❌ `HEARTBEAT`、`PING` - **不持久化**
+- **减少量**：数据库写入减少约 95%（500 个增量 → 5-10 个重要事件）
 
-**Rationale**: Streaming deltas are ephemeral and only needed for real-time delivery. Redis provides sufficient retention (24h) for debugging, while PostgreSQL stores the permanent audit trail.
+**理由**：流式增量是临时性的，仅用于实时交付。Redis 为调试提供足够的保留期（24 小时），而 PostgreSQL 存储永久审计追踪。
 
 ---
 
-## Event Model
+## 事件模型
 
-- Fields: `workflow_id`, `type`, `agent_id?`, `message?`, `timestamp`, `seq`.
-- Minimal event types (behind `streaming_v1` gate):
-  - `WORKFLOW_STARTED`, `AGENT_STARTED`, `AGENT_COMPLETED`, `ERROR_OCCURRED`.
-  - P2P v1 adds: `MESSAGE_SENT`, `MESSAGE_RECEIVED`, `WORKSPACE_UPDATED`.
-- Determinism: events are emitted from workflows as activities, recorded in Temporal history, and published to a local stream manager.
+- 字段：`workflow_id`、`type`、`agent_id?`、`message?`、`timestamp`、`seq`。
+- 最小事件类型（在 `streaming_v1` 门控之后）：
+  - `WORKFLOW_STARTED`、`AGENT_STARTED`、`AGENT_COMPLETED`、`ERROR_OCCURRED`。
+  - P2P v1 添加：`MESSAGE_SENT`、`MESSAGE_RECEIVED`、`WORKSPACE_UPDATED`。
+- 确定性：事件从工作流作为活动发出，记录在 Temporal 历史中，并发布到本地流管理器。
 
-### Attachment References in Events
+### 事件中的附件引用
 
-When a task includes file attachments, `WORKFLOW_STARTED` carries attachment metadata in `payload.task_context.attachments`:
+当任务包含文件附件时，`WORKFLOW_STARTED` 在 `payload.task_context.attachments` 中携带附件元数据：
 
 ```json
 {
@@ -54,26 +54,26 @@ When a task includes file attachments, `WORKFLOW_STARTED` carries attachment met
 }
 ```
 
-Attachment `id` references data stored in Redis (TTL 30 min). The actual binary content is NOT included in SSE events — only lightweight metadata.
+附件 `id` 引用存储在 Redis 中的数据（TTL 30 分钟）。实际的二进制内容**不包含**在 SSE 事件中——仅包含轻量级元数据。
 
-### Enhanced Event Types
+### 增强事件类型
 
-**LLM Response Events:**
-- `LLM_PARTIAL`: Emitted during agent execution with streaming text deltas (token‑by‑token or in small chunks).
-  - Streaming text: `message` contains the text delta.
-  - SSE mapping: sent as `event: thread.message.delta` with data:
+**LLM 响应事件：**
+- `LLM_PARTIAL`：在代理执行期间发出，包含流式文本增量（逐令牌或小批量）。
+  - 流式文本：`message` 包含文本增量。
+  - SSE 映射：以 `event: thread.message.delta` 发送，数据为：
     ```json
     {
-      "delta": "partial text...",
+      "delta": "部分文本...",
       "workflow_id": "task-...",
       "agent_id": "simple-agent",
       "seq": 9,
       "stream_id": "1700000000000-0"
     }
     ```
-- `LLM_OUTPUT`: Emitted when an LLM call finishes with the final response and usage metadata.
-  - Final text: `message` contains the final response text (truncated for safety).
-  - Usage metadata: JSON structure in the `payload` field when available:
+- `LLM_OUTPUT`：在 LLM 调用完成时发出，包含最终响应和使用量元数据。
+  - 最终文本：`message` 包含最终响应文本（为安全起见截断）。
+  - 使用量元数据：可用时在 `payload` 字段中的 JSON 结构：
     ```json
     {
       "tokens_used": 174,
@@ -84,10 +84,10 @@ Attachment `id` references data stored in Redis (TTL 30 min). The actual binary 
       "provider": "openai"
     }
     ```
-  - SSE mapping: sent as `event: thread.message.completed` with data:
+  - SSE 映射：以 `event: thread.message.completed` 发送，数据为：
     ```json
     {
-      "response": "5 + 5 equals 10.",
+      "response": "5 + 5 等于 10。",
       "workflow_id": "task-...",
       "agent_id": "simple-agent",
       "seq": 10,
@@ -103,10 +103,10 @@ Attachment `id` references data stored in Redis (TTL 30 min). The actual binary 
     }
     ```
 
-**Tool Execution Events:**
-- `TOOL_INVOKED`: Emitted when agent-core executes a tool (web_search, calculator, file_read, etc.)
-  - `message` is a human‑readable description (for example, `"Calling web_search with query: 'latest news'"`)
-  - `payload` contains structured data:
+**工具执行事件：**
+- `TOOL_INVOKED`：当 agent-core 执行工具时发出（web_search、calculator、file_read 等）
+  - `message` 是人类可读的描述（例如 `"Calling web_search with query: 'latest news'"`）
+  - `payload` 包含结构化数据：
     ```json
     {
       "tool": "web_search",
@@ -115,9 +115,9 @@ Attachment `id` references data stored in Redis (TTL 30 min). The actual binary 
       }
     }
     ```
-- `TOOL_OBSERVATION`: Emitted when tool execution completes with results
-  - `message` contains truncated tool output or a short error description (UTF‑8 safe, up to ~2000 chars)
-  - `payload` includes metadata such as:
+- `TOOL_OBSERVATION`：当工具执行完成并返回结果时发出
+  - `message` 包含截断的工具输出或简短的错误描述（UTF-8 安全，最多约 2000 字符）
+  - `payload` 包含元数据，例如：
     ```json
     {
       "tool": "web_search",
@@ -126,18 +126,18 @@ Attachment `id` references data stored in Redis (TTL 30 min). The actual binary 
     }
     ```
 
-**Note**: Python-only tools (vendor adapters, custom integrations) use internal function calling and do not emit `TOOL_INVOKED`/`TOOL_OBSERVATION` events by design. Results are embedded in LLM response text.
+**注意**：仅 Python 工具（供应商适配器、自定义集成）使用内部函数调用，按设计不发出 `TOOL_INVOKED`/`TOOL_OBSERVATION` 事件。结果嵌入在 LLM 响应文本中。
 
-## gRPC: StreamingService
+## gRPC：StreamingService
 
-- RPC: `StreamingService.StreamTaskExecution(StreamRequest) returns (stream TaskUpdate)`
-- Request fields:
-  - `workflow_id` (required)
-  - `types[]` (optional) — filter by event types
-  - `last_event_id` (optional) — resume point; accepts either a Redis `stream_id` (preferred) or a numeric `seq`. When a numeric value is used, replay includes events where `seq > last_event_id`.
-- Response: `TaskUpdate` mirrors the event model.
+- RPC：`StreamingService.StreamTaskExecution(StreamRequest) returns (stream TaskUpdate)`
+- 请求字段：
+  - `workflow_id`（必需）
+  - `types[]`（可选）— 按事件类型过滤
+  - `last_event_id`（可选）— 恢复点；接受 Redis `stream_id`（首选）或数字 `seq`。当使用数字值时，重放包含 `seq > last_event_id` 的事件。
+- 响应：`TaskUpdate` 镜像事件模型。
 
-Example (pseudo‑Go):
+示例（伪 Go）：
 
 ```go
 client := pb.NewStreamingServiceClient(conn)
@@ -153,41 +153,41 @@ for {
 }
 ```
 
-## SSE: HTTP `/stream/sse`
+## SSE：HTTP `/stream/sse`
 
-- Method: `GET /stream/sse?workflow_id=<id>&types=<csv>&last_event_id=<id-or-seq>`
-- Headers: supports `Last-Event-ID` for browser auto‑resume.
-- CORS: `Access-Control-Allow-Origin: *` (dev‑friendly; front door should enforce auth in prod).
+- 方法：`GET /stream/sse?workflow_id=<id>&types=<csv>&last_event_id=<id-or-seq>`
+- 头部：支持 `Last-Event-ID` 用于浏览器自动恢复。
+- CORS：`Access-Control-Allow-Origin: *`（开发友好；生产环境中前端网关应强制执行认证）。
 
-Example (curl):
+示例（curl）：
 
 ```bash
-# Watch agent lifecycle events
+# 观看代理生命周期事件
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WF&types=AGENT_STARTED,AGENT_COMPLETED"
 
-# Watch LLM output and usage metadata
+# 观看 LLM 输出和使用量元数据
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WF&types=LLM_OUTPUT"
 
-# Watch tool execution
+# 观看工具执行
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WF&types=TOOL_INVOKED,TOOL_OBSERVATION"
 
-# Watch everything
+# 观看所有事件
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WF"
 ```
 
-Notes:
-- Server emits `id` as the Redis `stream_id` when available (preferred) or falls back to numeric `seq`. You can reconnect using the `Last-Event-ID` header or `last_event_id` query param with either form.
-- Heartbeats are sent as SSE comments every ~10s to keep intermediaries alive.
-- `LLM_PARTIAL` events are mapped to `thread.message.delta` SSE events with a `delta` field for streaming text.
-- `LLM_OUTPUT` events contain the final response text in `message` and usage metadata in `payload`; the SSE handler maps these to `thread.message.completed` events with `response` (text) and optional `metadata`.
+注意：
+- 服务器在可用时发出 Redis `stream_id` 作为 `id`（首选），否则回退到数字 `seq`。您可以使用 `Last-Event-ID` 头部或 `last_event_id` 查询参数以任一形式重新连接。
+- 心跳大约每 10 秒作为 SSE 注释发送，以保持中间代理存活。
+- `LLM_PARTIAL` 事件映射为 `thread.message.delta` SSE 事件，带有 `delta` 字段用于流式文本。
+- `LLM_OUTPUT` 事件包含 `message` 中的最终响应文本和 `payload` 中的使用量元数据；SSE 处理器将其映射为 `thread.message.completed` 事件，包含 `response`（文本）和可选的 `metadata`。
 
-## WebSocket: HTTP `/stream/ws`
+## WebSocket：HTTP `/stream/ws`
 
-- Method: `GET /stream/ws?workflow_id=<id>&types=<csv>&last_event_id=<id-or-seq>`
-- Messages: JSON objects matching the event model.
-- Heartbeats: server pings every ~20s; client should reply with pong.
+- 方法：`GET /stream/ws?workflow_id=<id>&types=<csv>&last_event_id=<id-or-seq>`
+- 消息：JSON 对象，匹配事件模型。
+- 心跳：服务器大约每 20 秒 ping 一次；客户端应回复 pong。
 
-Example (JS):
+示例（JS）：
 
 ```js
 const ws = new WebSocket(`ws://localhost:8081/stream/ws?workflow_id=${wf}`);
@@ -196,105 +196,105 @@ ws.onmessage = (e) => {
 };
 ```
 
-## Invalid Workflow Detection
+## 无效工作流检测
 
-Both gRPC and SSE streaming endpoints automatically validate workflow existence to fail fast for invalid workflow IDs:
+gRPC 和 SSE 流式端点均自动验证工作流是否存在，以便对无效工作流 ID 快速失败：
 
-### Behavior
+### 行为
 
-- **Validation Timeout**: 30 seconds from connection start
-- **Validation Method**: Uses Temporal `DescribeWorkflowExecution` API
-- **First Event Timer**: Fires after 30s if no events are received
+- **验证超时**：从连接开始 30 秒
+- **验证方法**：使用 Temporal `DescribeWorkflowExecution` API
+- **首个事件定时器**：如果 30 秒内未收到事件则触发
 
-### Response by Transport
+### 按传输方式的响应
 
-**gRPC (`StreamingService.StreamTaskExecution`)**
-- Returns `NotFound` gRPC error code
-- Error message: `"workflow not found"` or `"workflow not found or unavailable"`
+**gRPC（`StreamingService.StreamTaskExecution`）**
+- 返回 `NotFound` gRPC 错误码
+- 错误信息：`"workflow not found"` 或 `"workflow not found or unavailable"`
 
-**SSE (`/stream/sse`)**
-- Emits `ERROR_OCCURRED` event before closing:
+**SSE（`/stream/sse`）**
+- 在关闭前发出 `ERROR_OCCURRED` 事件：
   ```
   event: ERROR_OCCURRED
   data: {"workflow_id":"xxx","type":"ERROR_OCCURRED","message":"Workflow not found"}
   ```
-- Includes heartbeat pings (`: ping`) every 10s while waiting
+- 在等待期间每 10 秒包含心跳 ping（`: ping`）
 
-**WebSocket (`/stream/ws`)**
-- Same behavior as SSE, sends JSON error event then closes connection
+**WebSocket（`/stream/ws`）**
+- 与 SSE 行为相同，发送 JSON 错误事件后关闭连接
 
-### Valid Workflow Edge Cases
+### 有效工作流边缘情况
 
-- **Workflow exists but produces no events within 30s**: Stream stays open, timer resets
-- **Temporal unavailable during validation**: Returns error immediately
-- **Valid workflows**: Timer is disabled after first event arrives
+- **工作流存在但 30 秒内无事件产生**：流保持打开，定时器重置
+- **验证期间 Temporal 不可用**：立即返回错误
+- **有效工作流**：首个事件到达后禁用定时器
 
-### Example Usage
+### 使用示例
 
 ```bash
-# Invalid workflow - returns error after ~30s
+# 无效工作流 - 约 30 秒后返回错误
 shannon stream "invalid-workflow-123"
-# Output after 30s:
+# 30 秒后输出：
 # ERROR_OCCURRED: Workflow not found
 
-# Valid workflow - streams normally
+# 有效工作流 - 正常流式传输
 shannon stream "task-user-1234567890"
-# Output: immediate streaming of events
+# 输出：立即流式传输事件
 ```
 
-### Notes
+### 注意
 
-- This prevents indefinite hanging when streaming non-existent workflows
-- The 30s timeout balances responsiveness with allowing slow workflow startup
-- Heartbeats keep connections alive through proxies during validation period
+- 这防止了流式传输不存在的工作流时无限挂起
+- 30 秒超时在响应性和允许工作流缓慢启动之间取得平衡
+- 心跳在验证期间通过代理保持连接存活
 
-### Gateway Behavior
+### Gateway 行为
 
-- The HTTP gateway forwards streaming filters to the orchestrator and accepts any event types. Unknown types simply yield no events.
-- `last_event_id` accepts both numeric sequences and Redis stream IDs (e.g., `1700000000000-0`).
+- HTTP gateway 将流式过滤器转发给编排器，并接受任何事件类型。未知类型不会产生事件。
+- `last_event_id` 接受数字序列和 Redis 流 ID（例如 `1700000000000-0`）。
 
-## Dynamic Teams (Signals) + Team Events
+## 动态团队（信号）+ 团队事件
 
-When `dynamic_team_v1` is enabled in `SupervisorWorkflow`, the workflow accepts signals:
+当 `SupervisorWorkflow` 中启用 `dynamic_team_v1` 时，工作流接受信号：
 
-- Recruit: signal name `recruit_v1` with JSON `{ "Description": string, "Role"?: string }`.
-- Retire:  signal name `retire_v1` with JSON `{ "AgentID": string }`.
+- 招募：信号名称 `recruit_v1`，JSON `{ "Description": string, "Role"?: string }`。
+- 退休：信号名称 `retire_v1`，JSON `{ "AgentID": string }`。
 
-Authorized actions emit streaming events:
+授权操作发出流式事件：
 
-- `TEAM_RECRUITED` with `agent_id` as the role (for minimal v1) and `message` as the description.
-- `TEAM_RETIRED` with `agent_id` as the retired agent.
+- `TEAM_RECRUITED`，`agent_id` 为角色（用于最小 v1），`message` 为描述。
+- `TEAM_RETIRED`，`agent_id` 为退休的代理。
 
-Helper script to send signals via Temporal CLI inside docker compose:
+在 docker compose 内通过 Temporal CLI 发送信号的辅助脚本：
 
 ```bash
-# Recruit a new worker for a subtask
-./scripts/signal_team.sh recruit <WORKFLOW_ID> "Summarize section 3" writer
+# 为子任务招募新 worker
+./scripts/signal_team.sh recruit <WORKFLOW_ID> "总结第 3 节" writer
 
-# Retire a worker
+# 退休 worker
 ./scripts/signal_team.sh retire <WORKFLOW_ID> agent-xyz
 ```
 
-Tip: Use SSE/WS filters to only watch team events:
+提示：使用 SSE/WS 过滤器仅观看团队事件：
 
 ```bash
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WF&types=TEAM_RECRUITED,TEAM_RETIRED"
 ```
 
-## Swarm Workflow Events
+## Swarm 工作流事件
 
-When `force_swarm: true` triggers SwarmWorkflow, additional event types are emitted for real-time task board UIs:
+当 `force_swarm: true` 触发 SwarmWorkflow 时，为实时任务板 UI 发出额外事件类型：
 
-| Event Type | Agent ID | Payload | When |
+| 事件类型 | 代理 ID | 负载 | 时机 |
 |-----------|----------|---------|------|
-| `AGENT_STARTED` | `{agent-name}` | `{role: "researcher"}` | Agent spawned with role |
-| `AGENT_COMPLETED` | `{agent-name}` | — | Agent finished |
-| `TASKLIST_UPDATED` | `tasklist` | `{tasks: SwarmTask[]}` | Task list changed |
-| `LEAD_DECISION` | `swarm-lead` | `{event_type, actions_count}` | Lead coordination |
+| `AGENT_STARTED` | `{agent-name}` | `{role: "researcher"}` | 代理以角色生成 |
+| `AGENT_COMPLETED` | `{agent-name}` | — | 代理完成 |
+| `TASKLIST_UPDATED` | `tasklist` | `{tasks: SwarmTask[]}` | 任务列表变更 |
+| `LEAD_DECISION` | `swarm-lead` | `{event_type, actions_count}` | Lead 协调 |
 
-### TASKLIST_UPDATED Payload
+### TASKLIST_UPDATED 负载
 
-The `TASKLIST_UPDATED` event carries the full task list in its payload, enabling frontends to render a live task board:
+`TASKLIST_UPDATED` 事件在其负载中携带完整任务列表，使前端能够渲染实时任务板：
 
 ```json
 {
@@ -305,7 +305,7 @@ The `TASKLIST_UPDATED` event carries the full task list in its payload, enabling
     "tasks": [
       {
         "id": "T1",
-        "description": "Research US AI chip market",
+        "description": "研究美国 AI 芯片市场",
         "status": "in_progress",
         "owner": "takao",
         "created_by": "decompose",
@@ -314,7 +314,7 @@ The `TASKLIST_UPDATED` event carries the full task list in its payload, enabling
       },
       {
         "id": "T2",
-        "description": "Analyze comparative data",
+        "description": "分析比较数据",
         "status": "pending",
         "owner": "",
         "depends_on": ["T1"],
@@ -325,9 +325,9 @@ The `TASKLIST_UPDATED` event carries the full task list in its payload, enabling
 }
 ```
 
-### AGENT_STARTED with Role
+### 带角色的 AGENT_STARTED
 
-Swarm `AGENT_STARTED` events include the agent's role in the payload, which is not present in non-swarm workflows:
+Swarm `AGENT_STARTED` 事件在负载中包含代理的角色，这在非 swarm 工作流中不存在：
 
 ```json
 {
@@ -340,61 +340,61 @@ Swarm `AGENT_STARTED` events include the agent's role in the payload, which is n
 }
 ```
 
-### Streaming Swarm Events
+### 流式传输 Swarm 事件
 
 ```bash
-# Watch swarm task board and agent lifecycle
+# 观看 swarm 任务板和代理生命周期
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WF&types=TASKLIST_UPDATED,AGENT_STARTED,AGENT_COMPLETED,LEAD_DECISION"
 
-# Watch everything including tool execution
+# 观看所有事件，包括工具执行
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WF"
 ```
 
-### HITL: Mid-Execution Human Input
+### HITL：执行中的人工输入
 
-Users can send messages to a running swarm, which arrive as `human_input` events in the Lead's decision loop:
+用户可以向运行中的 swarm 发送消息，这些消息以 `human_input` 事件到达 Lead 的决策循环：
 
 ```bash
 POST /api/v1/swarm/{workflowID}/message
 Content-Type: application/json
 
-{"message": "Focus more on Samsung's foundry strategy"}
+{"message": "更多关注三星的代工策略"}
 ```
 
-The Lead incorporates the feedback in its next decision cycle.
+Lead 在下一个决策周期中纳入反馈。
 
-## HITL Research Review Events
+## HITL 研究审查事件
 
-When `review_plan: "manual"` or `require_review: true` is set, the workflow emits HITL-specific events for research plan review.
+当设置 `review_plan: "manual"` 或 `require_review: true` 时，工作流为研究计划审查发出 HITL 特定事件。
 
-### Event Types
+### 事件类型
 
-| Event | Description | Emitted By |
+| 事件 | 描述 | 由谁发出 |
 |-------|-------------|------------|
-| `RESEARCH_PLAN_READY` | Initial plan generated, awaiting review | Orchestrator |
-| `REVIEW_USER_FEEDBACK` | User submitted feedback | Gateway (Review API) |
-| `RESEARCH_PLAN_UPDATED` | Plan refined based on feedback | Gateway (Review API) |
-| `RESEARCH_PLAN_APPROVED` | User approved, execution begins | Orchestrator |
+| `RESEARCH_PLAN_READY` | 初始计划已生成，等待审查 | Orchestrator |
+| `REVIEW_USER_FEEDBACK` | 用户提交了反馈 | Gateway（审查 API） |
+| `RESEARCH_PLAN_UPDATED` | 根据反馈细化计划 | Gateway（审查 API） |
+| `RESEARCH_PLAN_APPROVED` | 用户批准，开始执行 | Orchestrator |
 
-### Streaming HITL Events
+### 流式传输 HITL 事件
 
 ```bash
-# Watch all HITL review events
+# 观看所有 HITL 审查事件
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WF&types=RESEARCH_PLAN_READY,REVIEW_USER_FEEDBACK,RESEARCH_PLAN_UPDATED,RESEARCH_PLAN_APPROVED"
 
-# Minimal: just plan ready and approved (for progress tracking)
+# 最小化：仅计划就绪和批准（用于进度跟踪）
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WF&types=RESEARCH_PLAN_READY,RESEARCH_PLAN_APPROVED"
 ```
 
-### HITL Event Payload
+### HITL 事件负载
 
-HITL events include a `payload` field with review metadata:
+HITL 事件包含 `payload` 字段，带有审查元数据：
 
 ```json
 {
   "type": "RESEARCH_PLAN_UPDATED",
   "agent_id": "research-planner",
-  "message": "Updated plan focusing on safety...",
+  "message": "更新后的计划聚焦于安全性...",
   "payload": {
     "round": 2,
     "version": 3,
@@ -403,12 +403,12 @@ HITL events include a `payload` field with review metadata:
 }
 ```
 
-**Payload fields:**
-- `round`: Current review round (1-10, max 10)
-- `version`: State version for optimistic concurrency (use with `If-Match` header)
-- `intent`: LLM's assessment — `"feedback"` (asking questions), `"ready"` (plan ready), `"execute"` (user approved)
+**负载字段：**
+- `round`：当前审查轮次（1-10，最多 10）
+- `version`：乐观并发的状态版本（与 `If-Match` 头部一起使用）
+- `intent`：LLM 的评估 — `"feedback"`（提出问题）、`"ready"`（计划就绪）、`"execute"`（用户已批准）
 
-### Frontend Integration Example
+### 前端集成示例
 
 ```jsx
 function HITLReviewStream({ workflowId }) {
@@ -439,98 +439,98 @@ function HITLReviewStream({ workflowId }) {
 
   return (
     <div>
-      <p>Status: {reviewState.status}</p>
+      <p>状态：{reviewState.status}</p>
       {reviewState.plan && <pre>{reviewState.plan}</pre>}
       {reviewState.intent === 'ready' && (
-        <button onClick={() => approveReview(workflowId)}>Approve Plan</button>
+        <button onClick={() => approveReview(workflowId)}>批准计划</button>
       )}
     </div>
   );
 }
 ```
 
-### HITL Workflow Timeline
+### HITL 工作流时间线
 
 ```
-Time    Event                     Description
+时间    事件                     描述
 ─────────────────────────────────────────────────────────
-0s      WORKFLOW_STARTED          Task submitted
-1s      DATA_PROCESSING           Preparing context
-3s      RESEARCH_PLAN_READY       Plan generated, UI shows review
-        ─── workflow pauses, waiting for user ───
-45s     REVIEW_USER_FEEDBACK      User: "Focus on X"
-47s     RESEARCH_PLAN_UPDATED     Refined plan (intent: ready)
-60s     RESEARCH_PLAN_APPROVED    User clicks Approve
-        ─── workflow resumes ───
-62s     DELEGATION                Starting research agents
-...     [normal research events]
-300s    WORKFLOW_COMPLETED        Research complete
+0s      WORKFLOW_STARTED          任务已提交
+1s      DATA_PROCESSING           准备上下文
+3s      RESEARCH_PLAN_READY       计划已生成，UI 显示审查
+        ─── 工作流暂停，等待用户 ───
+45s     REVIEW_USER_FEEDBACK      用户："关注 X"
+47s     RESEARCH_PLAN_UPDATED     细化后的计划（intent: ready）
+60s     RESEARCH_PLAN_APPROVED    用户点击批准
+        ─── 工作流恢复 ───
+62s     DELEGATION                启动研究代理
+...     [正常研究事件]
+300s    WORKFLOW_COMPLETED        研究完成
 ```
 
-## Quick Start
+## 快速开始
 
-### Development Testing
+### 开发测试
 ```bash
-# Start Shannon services
+# 启动 Shannon 服务
 make dev
 
-# Test streaming for a specific workflow 
+# 测试特定工作流的流式传输
 make smoke-stream WF_ID=<workflow_id>
 
-# Optional: custom endpoints
+# 可选：自定义端点
 make smoke-stream WF_ID=workflow-123 ADMIN=http://localhost:8081 GRPC=localhost:50052
 ```
 
-<!-- Browser demo section removed: file no longer included -->
+<!-- 浏览器演示部分已移除：文件不再包含 -->
 
-## Capacity & Replay Behaviour
+## 容量与重放行为
 
-- Live streaming uses Redis Streams with a bounded length (approximate maxlen ~256) per workflow for deterministic replay.
-- Capacity can be adjusted via environment variable or code:
-  - `STREAMING_RING_CAPACITY` (integer) — orchestrator reads this and calls `streaming.Configure(n)` at startup
-  - Programmatic: call `streaming.Configure(n)` during initialization
+- 实时流式传输使用 Redis Streams，每个工作流有界长度（近似 maxlen ~256），用于确定性重放。
+- 容量可通过环境变量或代码调整：
+  - `STREAMING_RING_CAPACITY`（整数）— 编排器读取并在启动时调用 `streaming.Configure(n)`
+  - 编程方式：在初始化期间调用 `streaming.Configure(n)`
 
-## Operational Notes
+## 运维注意事项
 
-- Replay safety: event emission is version‑gated and routed through activities, preserving Temporal determinism.
-- Backpressure: drops events to slow subscribers (non‑blocking channels); clients should reconnect with `last_event_id` as needed.
-- Security: front the admin HTTP port with an authenticated proxy in production; gRPC should require TLS when exposed externally.
+- 重放安全：事件发出经过版本门控并通过活动路由，保持 Temporal 确定性。
+- 背压：向慢订阅者丢弃事件（非阻塞通道）；客户端应视需要使用 `last_event_id` 重新连接。
+- 安全：在生产环境中，在管理 HTTP 端口前放置经过认证的代理；gRPC 在外部暴露时应要求 TLS。
 
-### Anti‑patterns and Load Considerations
-- Avoid unbounded per‑client buffers. The in‑process manager uses bounded channels and a fixed ring to prevent memory growth.
-- Do not rely on every event being delivered to slow clients. Instead, reconnect with `last_event_id` to catch up deterministically.
-- Prefer SSE for simple dashboards and logs; use WebSocket only when you need bi‑directional control messages.
-- For high fan‑out, place an external event gateway (e.g., NGINX or a thin Go fan‑out) in front; the in‑process manager is not a message broker.
+### 反模式与负载考虑
+- 避免每个客户端无界缓冲区。进程内管理器使用有界通道和固定环来防止内存增长。
+- 不要依赖每个事件都交付给慢客户端。相反，使用 `last_event_id` 重新连接以确定性方式追赶。
+- 对于简单的仪表板和日志，优先使用 SSE；仅在需要双向控制消息时使用 WebSocket。
+- 对于高扇出，在外部放置事件网关（例如 NGINX 或轻量级 Go 扇出）；进程内管理器不是消息代理。
 
-## Architecture
+## 架构
 
-### Event Flow
+### 事件流
 ```
-Workflow → EmitTaskUpdate (Activity) → Stream Manager → Ring Buffer + Live Subscribers
+工作流 → EmitTaskUpdate（活动）→ 流管理器 → 环缓冲区 + 实时订阅者
                                                            ↓
-                        SSE ← HTTP Gateway ← Event Distribution → gRPC Stream  
+                        SSE ← HTTP 网关 ← 事件分发 → gRPC 流
                          ↓                                       ↓
-                    WebSocket ←────────────────────────────── Client SDKs
+                    WebSocket ←────────────────────────────── 客户端 SDK
 ```
 
-### Key Components
-- **Stream Manager**: In-memory pub/sub with per-workflow ring buffers
-- **Ring Buffer**: Configurable capacity (default: 256 events) for replay support
-- **Multiple Protocols**: gRPC (enterprise), SSE (browser-native), WebSocket (interactive)
-- **Deterministic Events**: All events routed through Temporal activities for replay safety
+### 关键组件
+- **流管理器**：内存中的发布/订阅，每个工作流有环缓冲区
+- **环缓冲区**：可配置容量（默认：256 个事件），用于重放支持
+- **多协议**：gRPC（企业级）、SSE（浏览器原生）、WebSocket（交互式）
+- **确定性事件**：所有事件通过 Temporal 活动路由，保证重放安全
 
-### Service Ports
-- **Admin HTTP**: 8081 (SSE `/stream/sse`, WebSocket `/stream/ws`, health, approvals)
-- **gRPC**: 50052 (StreamingService, OrchestratorService, SessionService)
+### 服务端口
+- **管理 HTTP**：8081（SSE `/stream/sse`、WebSocket `/stream/ws`、健康检查、审批）
+- **gRPC**：50052（StreamingService、OrchestratorService、SessionService）
 
-## Integration Examples
+## 集成示例
 
-### Python SDK (Pseudo-code)
+### Python SDK（伪代码）
 ```python
 import grpc
 from shannon.pb import orchestrator_pb2, orchestrator_pb2_grpc
 
-# gRPC Streaming
+# gRPC 流式传输
 channel = grpc.insecure_channel('localhost:50052')
 client = orchestrator_pb2_grpc.StreamingServiceStub(channel)
 request = orchestrator_pb2.StreamRequest(
@@ -543,7 +543,7 @@ for update in client.StreamTaskExecution(request):
     print(f"Agent {update.agent_id}: {update.type} (seq: {update.seq})")
 ```
 
-### React Component
+### React 组件
 ```jsx
 import React, { useEffect, useState } from 'react';
 
@@ -561,15 +561,15 @@ function WorkflowStream({ workflowId }) {
       const event = JSON.parse(e.data);
 
       if (event.type === 'LLM_OUTPUT') {
-        // Check if message is usage metadata (JSON) or text chunk (string)
+        // 检查 message 是使用量元数据（JSON）还是文本块（字符串）
         try {
           const parsed = JSON.parse(event.message);
           if (parsed.usage) {
-            // Usage metadata
+            // 使用量元数据
             setUsage(parsed);
           }
         } catch {
-          // Text chunk
+          // 文本块
           setLlmOutput(prev => prev + event.message);
         }
       }
@@ -586,9 +586,9 @@ function WorkflowStream({ workflowId }) {
         <pre>{llmOutput}</pre>
         {usage && (
           <div className="usage-stats">
-            Model: {usage.model} ({usage.provider})<br/>
-            Tokens: {usage.usage.total_tokens}
-            (in: {usage.usage.input_tokens}, out: {usage.usage.output_tokens})
+            模型：{usage.model}（{usage.provider}）<br/>
+            令牌：{usage.usage.total_tokens}
+            （入：{usage.usage.input_tokens}，出：{usage.usage.output_tokens}）
           </div>
         )}
       </div>
@@ -596,7 +596,7 @@ function WorkflowStream({ workflowId }) {
       <div className="events">
         {events.map(event => (
           <div key={event.seq}>
-            {event.type}: {event.agent_id || event.message?.substring(0, 50)}
+            {event.type}：{event.agent_id || event.message?.substring(0, 50)}
           </div>
         ))}
       </div>
@@ -605,26 +605,26 @@ function WorkflowStream({ workflowId }) {
 }
 ```
 
-## Troubleshooting
+## 故障排查
 
-### Common Issues
+### 常见问题
 
-**"No events received"**
-- Verify workflow_id exists and is running
-- Check that `streaming_v1` version gate is enabled in the workflow
-- Ensure admin HTTP port (8081) is accessible
-- If using `types`, make sure the workflow actually emits those event types
+**"未收到事件"**
+- 验证 workflow_id 存在且正在运行
+- 检查工作流中是否启用了 `streaming_v1` 版本门控
+- 确保管理 HTTP 端口（8081）可访问
+- 如果使用 `types`，请确保工作流确实发出这些事件类型
 
-**"Events missing after reconnect"**
-- Use `last_event_id` parameter or `Last-Event-ID` header
-- Replay reads from the bounded Redis Stream; very old events may be pruned once the stream (~256 items) evicts them
+**"重新连接后事件丢失"**
+- 使用 `last_event_id` 参数或 `Last-Event-ID` 头部
+- 重放从有界的 Redis Stream 读取；非常旧的事件可能在流（约 256 项）淘汰它们后被修剪
 
-**Python async: RuntimeError when awaiting inside async-for**
-- Do not `await` other client calls inside the `async for` over the stream. Break out first, then `await`:
+**Python async：在 async-for 内部 await 时出现 RuntimeError**
+- 不要在流的 `async for` 内部 await 其他客户端调用。先跳出循环，然后再 `await`：
 
 ```python
 async with AsyncShannonClient() as client:
-    h = await client.submit_task("Complex analysis")
+    h = await client.submit_task("复杂分析")
     async for e in client.stream(h.workflow_id, types=["LLM_OUTPUT","WORKFLOW_COMPLETED"]):
         if e.type == "WORKFLOW_COMPLETED":
             break
@@ -632,79 +632,79 @@ async with AsyncShannonClient() as client:
     print(final.result)
 ```
 
-**"High memory usage"**
-- Reduce ring buffer capacity in config
-- Implement client-side filtering to reduce event volume
-- Use connection pooling for multiple concurrent streams
+**"内存使用量高"**
+- 减少配置中的环缓冲区容量
+- 实施客户端过滤以减少事件量
+- 对多个并发流使用连接池
 
-### Debug Commands
+### 调试命令
 ```bash
-# Check streaming endpoints
+# 检查流式端点
 curl -s http://localhost:8081/health
 curl -N "http://localhost:8081/stream/sse?workflow_id=test" | head -10
 
-# Test gRPC connectivity
+# 测试 gRPC 连接
 grpcurl -plaintext localhost:50052 list shannon.orchestrator.StreamingService
 
-# Monitor streaming logs
+# 监控流式日志
 docker compose logs orchestrator | grep "stream"
 ```
 
-## Provider Compatibility
+## 提供商兼容性
 
-### Usage Metadata Streaming Support
+### 使用量元数据流式传输支持
 
-Shannon's LLM providers emit usage metadata in `LLM_OUTPUT` streaming events with varying levels of support:
+Shannon 的 LLM 提供商在 `LLM_OUTPUT` 流式事件中发出使用量元数据，支持程度不同：
 
-| Provider | Streaming | Usage Metadata | Implementation |
+| 提供商 | 流式传输 | 使用量元数据 | 实现 |
 |----------|-----------|----------------|----------------|
-| **OpenAI** | ✅ | ✅ | Uses `stream_options: {"include_usage": true}` |
-| **Anthropic** | ✅ | ✅ | Uses `await stream.get_final_message()` after streaming |
-| **Groq** | ✅ | ✅ | Usage available in final streaming chunk |
-| **Google** | ✅ | ✅ | Usage available via `usage_metadata` in final chunk |
-| **xAI** | ✅ | ⚠️ API Limitation | REST API does not emit usage in streaming mode |
-| **OpenAI-compatible** | ✅ | ⚠️ Varies | Depends on endpoint; some don't support `stream_options` |
+| **OpenAI** | ✅ | ✅ | 使用 `stream_options: {"include_usage": true}` |
+| **Anthropic** | ✅ | ✅ | 流式传输后使用 `await stream.get_final_message()` |
+| **Groq** | ✅ | ✅ | 使用量在最终流式块中可用 |
+| **Google** | ✅ | ✅ | 使用量通过最终块中的 `usage_metadata` 可用 |
+| **xAI** | ✅ | ⚠️ API 限制 | REST API 在流式模式下不发出使用量 |
+| **OpenAI 兼容** | ✅ | ⚠️ 视情况而定 | 取决于端点；部分不支持 `stream_options` |
 
-### Known Limitations
+### 已知限制
 
-**xAI Streaming**
-- xAI's REST API (OpenAI-compatible endpoint at `api.x.ai/v1`) does **not** emit usage metadata during streaming
-- Usage is only available in non-streaming responses
-- This is a limitation of xAI's API, not Shannon's implementation
-- Alternative: Use non-streaming mode for xAI if usage metadata is required
-- Native xAI gRPC SDK (`xai-sdk` package) has different behavior but would require complete provider rewrite
+**xAI 流式传输**
+- xAI 的 REST API（`api.x.ai/v1` 的 OpenAI 兼容端点）在流式传输期间**不**发出使用量元数据
+- 使用量仅在非流式响应中可用
+- 这是 xAI API 的限制，而非 Shannon 实现的问题
+- 替代方案：如果使用量元数据是必需的，对 xAI 使用非流式模式
+- 原生 xAI gRPC SDK（`xai-sdk` 包）行为不同，但需要完全重写提供商
 
-**OpenAI GPT-5 Models**
-- GPT-5-nano and GPT-5-mini models do not stream text deltas (OpenAI API bug)
-- Only usage metadata is streamed; no content chunks
-- This affects models: `gpt-5-nano-2025-08-07`, `gpt-5-mini-2025-08-07`
-- Workaround: Use GPT-4o models for streaming text + usage
+**OpenAI GPT-5 模型**
+- GPT-5-nano 和 GPT-5-mini 模型不流式传输文本增量（OpenAI API 错误）
+- 仅流式传输使用量元数据；无内容块
+- 影响模型：`gpt-5-nano-2025-08-07`、`gpt-5-mini-2025-08-07`
+- 变通方案：使用 GPT-4o 模型获取流式文本 + 使用量
 
-**OpenAI-Compatible Endpoints**
-- Some OpenAI-compatible endpoints (DeepSeek, Qwen, local models) may not support the `stream_options` parameter
-- Shannon gracefully handles this - streaming will work without usage metadata
-- Usage metadata will still be available in final task completion response
+**OpenAI 兼容端点**
+- 部分 OpenAI 兼容端点（DeepSeek、Qwen、本地模型）可能不支持 `stream_options` 参数
+- Shannon 优雅地处理此情况 - 流式传输将在没有使用量元数据的情况下工作
+- 使用量元数据仍可在最终任务完成响应中获取
 
-**Python-Only Tools**
-- Vendor-specific tools (GA4, custom adapters) execute via internal function calling
-- Do not emit `TOOL_INVOKED`/`TOOL_OBSERVATION` events (by architectural design)
-- Results are embedded in LLM response text
-- This avoids complex cross-language parameter mapping between Python ↔ Go ↔ Rust
+**仅 Python 工具**
+- 供应商特定工具（GA4、自定义适配器）通过内部函数调用执行
+- 按架构设计，不发出 `TOOL_INVOKED`/`TOOL_OBSERVATION` 事件
+- 结果嵌入在 LLM 响应文本中
+- 这避免了 Python ↔ Go ↔ Rust 之间复杂的跨语言参数映射
 
-### Implementation Details
+### 实现细节
 
-**Fallback Streaming**
-- When primary provider fails, Shannon automatically falls back to alternate providers
-- Usage metadata dict chunks are now preserved through the fallback path
-- Fix applied: `manager.py:737-738` accepts `(str, dict)` instead of just `str`
+**回退流式传输**
+- 当主要提供商失败时，Shannon 自动回退到备用提供商
+- 使用量元数据块现在通过回退路径保留
+- 修复应用：`manager.py:737-738` 接受 `(str, dict)` 而非仅 `str`
 
-**UTF-8 Safety**
-- Tool observation messages truncated to 2000 characters using UTF-8 safe truncation
-- Uses rune-based truncation (Go's `truncateQuery()`) to prevent splitting multi-byte characters
-- Fix applied: `agent.go:1346-1347`
+**UTF-8 安全**
+- 工具观察消息使用 UTF-8 安全截断截断至 2000 字符
+- 使用基于 rune 的截断（Go 的 `truncateQuery()`）防止分割多字节字符
+- 修复应用：`agent.go:1346-1347`
 
-**Usage Metadata Structure**
-All providers that support usage metadata emit a consistent structure:
+**使用量元数据结构**
+所有支持使用量元数据的提供商发出一致的结构：
 ```json
 {
   "usage": {
@@ -717,43 +717,43 @@ All providers that support usage metadata emit a consistent structure:
 }
 ```
 
-This metadata is also aggregated and available in:
-- Final task completion API response (`GET /api/v1/tasks/{id}`)
-- Task execution database records
-- Temporal workflow metadata
+此元数据也被聚合，并可在以下位置获取：
+- 最终任务完成 API 响应（`GET /api/v1/tasks/{id}`）
+- 任务执行数据库记录
+- Temporal 工作流元数据
 
-## Roadmap
+## 路线图
 
-### Phase 1 (Complete)
-- ✅ Minimal event types: WORKFLOW_STARTED, AGENT_STARTED, AGENT_COMPLETED, ERROR_OCCURRED
-- ✅ Extended event types: LLM_OUTPUT, TOOL_INVOKED, TOOL_OBSERVATION
-- ✅ Usage metadata streaming for OpenAI, Anthropic, Groq, Google providers
-- ✅ Three protocols: gRPC, SSE, WebSocket
-- ✅ Replay support using bounded Redis Streams
-- ✅ UTF-8 safe message truncation
-- ✅ Fallback streaming preserves usage metadata
-- ✅ Selective PostgreSQL persistence (filters ephemeral events)
+### 阶段 1（已完成）
+- ✅ 最小事件类型：WORKFLOW_STARTED、AGENT_STARTED、AGENT_COMPLETED、ERROR_OCCURRED
+- ✅ 扩展事件类型：LLM_OUTPUT、TOOL_INVOKED、TOOL_OBSERVATION
+- ✅ 为 OpenAI、Anthropic、Groq、Google 提供商提供使用量元数据流式传输
+- ✅ 三种协议：gRPC、SSE、WebSocket
+- ✅ 使用有界 Redis Streams 的重放支持
+- ✅ UTF-8 安全消息截断
+- ✅ 回退流式传输保留使用量元数据
+- ✅ 选择性 PostgreSQL 持久化（过滤临时事件）
 
-### Phase 2A: Multi-Agent Coordination (Complete)
-Quick wins leveraging existing infrastructure:
-- ✅ **ROLE_ASSIGNED**: Emitted when role-based agents are activated (e.g., `analysis`, `browser_use`)
-  - Payload: role name, available tools, tool count
-  - Location: `orchestrator_router.go:205-217`
-- ✅ **DELEGATION**: Emitted when orchestrator delegates subtasks to agents
-  - Already implemented in `orchestrator_router.go`
-- ✅ **BUDGET_THRESHOLD**: Emitted when token budget crosses warning thresholds
-  - Payload: usage_percent, tokens_used, budget_type (task/session)
-  - Location: `budget/manager.go:258-274`
+### 阶段 2A：多代理协调（已完成）
+利用现有基础设施的快速胜利：
+- ✅ **ROLE_ASSIGNED**：当基于角色的代理被激活时发出（例如 `analysis`、`browser_use`）
+  - 负载：角色名称、可用工具、工具数量
+  - 位置：`orchestrator_router.go:205-217`
+- ✅ **DELEGATION**：当编排器将子任务委托给代理时发出
+  - 已在 `orchestrator_router.go` 中实现
+- ✅ **BUDGET_THRESHOLD**：当令牌预算超过警告阈值时发出
+  - 负载：usage_percent、tokens_used、budget_type（task/session）
+  - 位置：`budget/manager.go:258-274`
 
-**Database Persistence**: All Phase 2A events persisted to PostgreSQL (via `shouldPersistEvent` filter)
+**数据库持久化**：所有阶段 2A 事件持久化到 PostgreSQL（通过 `shouldPersistEvent` 过滤器）
 
-### Phase 2B: Advanced Multi-Agent (Planned)
-Requires new system implementations:
-- ⏳ **AGENT_MESSAGE_SENT**: Inter-agent communication (requires `mailbox_v1` system)
-- ⏳ **POLICY_EVALUATED**: Policy framework events (OPA integration exists, needs streaming)
-- ⏳ **WASI_SANDBOX_EVENT**: Python code execution events (requires Rust→Go event bridge)
+### 阶段 2B：高级多代理（已规划）
+需要新系统实现：
+- ⏳ **AGENT_MESSAGE_SENT**：代理间通信（需要 `mailbox_v1` 系统）
+- ⏳ **POLICY_EVALUATED**：策略框架事件（OPA 集成存在，需要流式传输）
+- ⏳ **WASI_SANDBOX_EVENT**：Python 代码执行事件（需要 Rust→Go 事件桥接）
 
-### Phase 3 (Future)
-- WebSocket multiplexing for multiple workflows in one connection
-- SDK helpers in Python/TypeScript for easy consumption
-- Real-time dashboard components and visualization tools
+### 阶段 3（未来）
+- 单个连接中多个工作流的 WebSocket 多路复用
+- Python/TypeScript 的 SDK 辅助工具，便于使用
+- 实时仪表板组件和可视化工具
