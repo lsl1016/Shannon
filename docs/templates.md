@@ -1,12 +1,12 @@
-# Templates
+# 模板
 
-Deterministic, zero‑token workflows for common patterns. This guide combines getting started steps with deeper architecture and best practices.
+用于常见模式的确定性、零令牌工作流。本指南结合了入门步骤与更深层的架构和最佳实践。
 
 ---
 
-## Getting Started
+## 快速入门
 
-1) Create a template YAML under `config/workflows/examples/` (or your folder):
+1) 在 `config/workflows/examples/`（或你的文件夹）下创建模板 YAML：
 
 ```yaml
 name: simple_analysis
@@ -25,29 +25,29 @@ nodes:
     depends_on: []
 ```
 
-Tips:
+提示：
 - `type`: `simple | cognitive | dag | supervisor`
 - `strategy`: `react | chain_of_thought | reflection | debate | tree_of_thoughts`
-- Set per‑node `budget_max` and `tools_allowlist` to constrain execution.
+- 设置每个节点的 `budget_max` 和 `tools_allowlist` 以限制执行。
 
-2) Load templates at startup
+2) 启动时加载模板
 
-Loaded via `InitTemplateRegistry` from one or more directories: see `go/orchestrator/internal/workflows/template_catalog.go`.
+通过 `InitTemplateRegistry` 从一个或多个目录加载：参见 `go/orchestrator/internal/workflows/template_catalog.go`。
 
-3) List available templates
+3) 列出可用模板
 
 ```
 grpcurl -plaintext -d '{}' localhost:50052 \
   shannon.orchestrator.OrchestratorService/ListTemplates
 ```
 
-4) Execute a template
+4) 执行模板
 
-Request template execution by name/version and optionally disable AI:
+按名称/版本请求模板执行，并可选择禁用 AI：
 
 ```
 grpcurl -plaintext -d '{
-  "query": "Summarize this week's tech news",
+  "query": "总结本周的科技新闻",
   "context": {
     "template": "simple_analysis",
     "template_version": "1.0.0",
@@ -56,17 +56,17 @@ grpcurl -plaintext -d '{
 }' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
 ```
 
-Notes:
-- When `disable_ai` is true and the template is missing, the request fails fast.
-- When `workflows.templates.fallback_to_ai` (or `TEMPLATE_FALLBACK_ENABLED=1`) is enabled, failed template runs can fall back to AI decomposition.
+注意：
+- 当 `disable_ai` 为 true 且模板缺失时，请求快速失败。
+- 当 `workflows.templates.fallback_to_ai`（或 `TEMPLATE_FALLBACK_ENABLED=1`）启用时，失败的模板运行可以回退到 AI 分解。
 
-HTTP usage:
+HTTP 用法：
 
 ```bash
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "Weekly research briefing",
+    "query": "每周研究简报",
     "context": {
       "template": "simple_analysis",
       "template_version": "1.0.0",
@@ -75,55 +75,55 @@ curl -sS -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-Alias support: `context.template_name` is accepted as an alias for `context.template` when calling the HTTP API.
+别名支持：调用 HTTP API 时，`context.template_name` 被接受为 `context.template` 的别名。
 
-5) Best practices
+5) 最佳实践
 
-- Keep nodes small and deterministic; prefer more nodes over large monoliths.
-- Restrict tools explicitly per node.
-- Set `defaults.require_approval` when human sign‑off is needed.
-- Use `extends` to share defaults; registry validates via `Finalize()`.
+- 保持节点小而确定性；倾向于更多节点而非大型单体。
+- 在每个节点显式限制工具。
+- 当需要人工签批时设置 `defaults.require_approval`。
+- 使用 `extends` 共享默认值；注册表通过 `Finalize()` 验证。
 
 ---
 
-## Overview & Architecture
+## 概述与架构
 
-Templates provide zero‑token routing (System 1) alongside intelligent AI decomposition (System 2):
+模板提供零令牌路由（系统 1）以及智能 AI 分解（系统 2）：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     User Query                               │
+│                     用户查询                                  │
 └────────────────┬────────────────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Orchestrator Router                             │
-│  1. Check template registry for exact match                  │
-│  2. Consult learning router for learned patterns             │
-│  3. Fall back to AI decomposition if needed                  │
+│              编排器路由器                                      │
+│  1. 检查模板注册表是否有精确匹配                                  │
+│  2. 咨询学习路由器以获取学习到的模式                              │
+│  3. 如果需要，回退到 AI 分解                                   │
 └────────────────┬────────────────────────────────────────────┘
                  │
         ┌────────┴────────┬─────────────┐
         ▼                 ▼             ▼
 ┌───────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Template     │ │   Learning   │ │     AI       │
-│  Workflow     │ │   Router     │ │ Decomposition│
-│ (0 tokens)    │ │ (0 tokens)   │ │ (full cost)  │
-└───────────────┘ └──────────────┘ └──────────────┘
+│  模板         │ │  学习路由器   │ │   AI         │
+│  工作流        │ │  (0 令牌)    │ │  分解        │
+│  (0 令牌)     │ └──────────────┘ │  (完整成本)  │
+└───────────────┘                  └──────────────┘
 ```
 
-System 1 (Templates): deterministic, version‑gated workflows; per‑node budgets with automatic degradation.
-System 2 (Learning Router): recommends strategies for repeated patterns; configurable exploration.
+系统 1（模板）：确定性、版本门控的工作流；每个节点的预算与自动降级。
+系统 2（学习路由器）：为重复模式推荐策略；可配置的探索。
 
 ---
 
-## Template Structure
+## 模板结构
 
-### Basic Format
+### 基本格式
 
 ```yaml
 name: template_name
-description: "What this does"
+description: "它的作用"
 version: "1.0.0"
 defaults:
   budget_agent_max: 10000
@@ -137,7 +137,7 @@ nodes:
     tools_allowlist:
       - web_search
       - calculator
-    depends_on: []               # DAG ordering
+    depends_on: []               # DAG 排序
 
   - id: node_2
     type: cognitive
@@ -150,41 +150,41 @@ edges:
     to: node_2
 ```
 
-Use `tools_allowlist` on nodes. For hybrid DAG tasks inside `metadata.tasks`, either `tools` or `tools_allowlist` is accepted.
+在节点上使用 `tools_allowlist`。对于 `metadata.tasks` 内的混合 DAG 任务，`tools` 或 `tools_allowlist` 均可接受。
 
-### Node Types
+### 节点类型
 
 Simple
-- Single‑task execution, direct tool invocation, minimal context.
+- 单任务执行、直接工具调用、最小上下文。
 
 Cognitive
-- Complex reasoning tasks; multiple patterns (ReAct/CoT/ToT/etc.).
-- Automatic budget‑based degradation (see below) — no extra flag needed.
+- 复杂推理任务；多种模式（ReAct/CoT/ToT/等）。
+- 自动基于预算的降级（见下文）——无需额外标志。
 
 DAG
-- Parallel execution branches and dependencies in one node.
+- 在一个节点中的并行执行分支和依赖关系。
 
 Supervisor
-- Aggregates results from branches; orchestrates final synthesis.
+- 聚合分支结果；协调最终综合。
 
 ---
 
-## Pattern Degradation
+## 模式降级
 
-### Automatic Budget Management (Current)
+### 自动预算管理（当前）
 
-Patterns degrade automatically by `budget_max` using thresholds. Example:
+模式通过 `budget_max` 使用阈值自动降级。示例：
 
 ```
 Tree of Thoughts → Chain of Thought → ReAct
-   (budget ↓)           (budget ↓)
+   (预算 ↓)           (预算 ↓)
 ```
 
-Runtime signals degradation in node metadata (e.g., `degraded_from`, `degraded_to`).
+运行时在节点元数据中标记降级（例如 `degraded_from`、`degraded_to`）。
 
-### on_fail (Validated, Limited Use)
+### on_fail（已验证，使用有限）
 
-The YAML supports `on_fail` with `degrade_to`, `retry`, and `escalate_to`. These fields are validated today but not fully enforced by the runtime yet. Budget‑based degradation is the active mechanism.
+YAML 支持带有 `degrade_to`、`retry` 和 `escalate_to` 的 `on_fail`。这些字段当前已验证，但运行时尚未完全强制执行。基于预算的降级是当前生效的机制。
 
 ```yaml
 nodes:
@@ -193,32 +193,32 @@ nodes:
     strategy: tree_of_thoughts
     budget_max: 5000
     on_fail:
-      degrade_to: chain_of_thought  # Validated; runtime enforcement TBD
+      degrade_to: chain_of_thought  # 已验证；运行时强制执行待定
       retry: 1
 ```
 
 ---
 
-## Learning Router
+## 学习路由器
 
-When enabled (`continuous_learning.enabled: true` or `CONTINUOUS_LEARNING_ENABLED=1`), the router will consult a strategy recommender before falling back to decomposition. Unknown strategies are safely ignored.
+当启用时（`continuous_learning.enabled: true` 或 `CONTINUOUS_LEARNING_ENABLED=1`），路由器将在回退到分解之前咨询策略推荐器。未知策略会被安全忽略。
 
 ---
 
-## Registry Management
+## 注册表管理
 
-Template loading
+模板加载
 
 ```bash
-# Default locations
+# 默认位置
 /app/config/workflows/
 /app/config/workflows/examples/
 
-# Custom via environment
+# 通过环境自定义
 export TEMPLATES_PATH="/custom/templates:/shared/templates"
 ```
 
-Hot reload (Future)
+热重载（未来）
 
 ```yaml
 registry:
@@ -229,16 +229,16 @@ registry:
 
 ---
 
-## Validation
+## 验证
 
-Rules
-1. Structure: required fields, valid YAML
-2. DAG: no cycles, valid dependencies
-3. Budget: node budgets ≤ defaults
-4. Tools: must exist in registry
-5. References: variables resolve
+规则
+1. 结构：必需字段、有效 YAML
+2. DAG：无循环、有效依赖
+3. 预算：节点预算 ≤ 默认值
+4. 工具：必须存在于注册表中
+5. 引用：变量可解析
 
-Error model
+错误模型
 
 ```go
 type ValidationIssue struct { Code, Message string }
@@ -247,14 +247,14 @@ type ValidationError struct { Issues []ValidationIssue }
 
 ---
 
-## Examples
+## 示例
 
-Research summary
+研究摘要
 
 ```yaml
 name: research_summary
 version: "1.0.0"
-description: "Research a topic and provide a structured summary"
+description: "研究一个主题并提供结构化摘要"
 
 defaults:
   budget_agent_max: 10000
@@ -287,12 +287,12 @@ edges:
     to: synthesize
 ```
 
-Complex DAG
+复杂 DAG
 
 ```yaml
 name: market_analysis
 version: "1.0.0"
-description: "Parallel market research and analysis"
+description: "并行市场研究与分析"
 
 defaults:
   budget_agent_max: 15000
@@ -305,13 +305,13 @@ nodes:
     metadata:
       tasks:
         - id: competitor_1
-          query: "Analyze competitor A"
+          query: "分析竞争对手 A"
           tools_allowlist: [web_search]
         - id: competitor_2
-          query: "Analyze competitor B"
+          query: "分析竞争对手 B"
           tools_allowlist: [web_search]
         - id: competitor_3
-          query: "Analyze competitor C"
+          query: "分析竞争对手 C"
           tools_allowlist: [web_search]
 
   - id: market_trends
@@ -327,50 +327,50 @@ nodes:
 
 ---
 
-## API Reference
+## API 参考
 
-Registration & listing
+注册与列出
 
 ```go
-// Load templates from directory
+// 从目录加载模板
 registry, err := workflows.InitTemplateRegistry(logger, "/path/to/templates")
 
-// Get specific template
+// 获取特定模板
 entry, found := registry.Get("research_summary@1.0.0")
 
-// List all templates
+// 列出所有模板
 summaries := registry.List()
 ```
 
-Execution via OrchestratorService
+通过 OrchestratorService 执行
 
 ```
 grpcurl -plaintext -d '{
-  "query": "Summarize quantum computing",
+  "query": "总结量子计算",
   "context": { "template": "research_summary", "template_version": "1.0.0" }
 }' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
 ```
 
 ---
 
-## Troubleshooting
+## 故障排查
 
-Templates not loading
-- Check `TEMPLATES_PATH` env var
-- Validate YAML
-- Inspect orchestrator logs for validation errors
+模板未加载
+- 检查 `TEMPLATES_PATH` 环境变量
+- 验证 YAML
+- 检查编排器日志中的验证错误
 
-Budget exceeded
-- Rebalance node budgets
-- Rely on automatic pattern degradation
-- Check for unnecessary sequential dependencies
+预算超限
+- 重新平衡节点预算
+- 依赖自动模式降级
+- 检查不必要的顺序依赖
 
-Learning router quality
-- Temporarily increase exploration
-- Reset stale patterns if needed
-- Review confidence thresholds
+学习路由器质量
+- 临时增加探索率
+- 如有需要重置过时模式
+- 检查置信度阈值
 
-Enable debug logging
+启用调试日志
 
 ```bash
 export DEBUG_TEMPLATES=true
@@ -380,9 +380,9 @@ docker compose logs orchestrator | rg -i template
 
 ---
 
-## Future
+## 未来
 
-- Hot reload for templates
-- Visual editor/marketplace
-- A/B testing for template variants
-- ML‑based budget allocation
+- 模板热重载
+- 可视化编辑器/市场
+- 模板变体的 A/B 测试
+- 基于 ML 的预算分配
