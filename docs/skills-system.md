@@ -1,32 +1,32 @@
-# Shannon Skills System
+# Shannon 技能系统
 
-## Overview
+## 概述
 
-Skills are markdown-based workflow definitions that provide structured prompts, tool configurations, and execution constraints for common tasks. They're compatible with Anthropic's Agent Skills specification.
+技能是基于 Markdown 的工作流定义，为常见任务提供结构化提示词、工具配置和执行约束。它们兼容 Anthropic 的 Agent Skills 规范。
 
-When a task uses a skill, the skill's markdown content becomes the system prompt, guiding the AI agent through a structured workflow. This enables consistent, repeatable task execution patterns.
+当任务使用技能时，技能的 Markdown 内容将作为系统提示词，引导 AI 代理执行结构化工作流。这实现了一致、可重复的任务执行模式。
 
-## Directory Structure
+## 目录结构
 
 ```
 config/skills/
-├── core/           # Built-in skills (committed to repo)
+├── core/           # 内置技能（提交到仓库）
 │   ├── code-review.md
 │   ├── debugging.md
 │   └── test-driven-dev.md
-├── user/           # User custom skills (gitignored)
-└── vendor/         # Vendor-specific skills (gitignored)
+├── user/           # 用户自定义技能（gitignore）
+└── vendor/         # 供应商特定技能（gitignore）
 ```
 
-| Directory | Purpose | Git Status |
+| 目录 | 用途 | Git 状态 |
 |-----------|---------|------------|
-| `core/` | Built-in skills shipped with Shannon | Committed |
-| `user/` | Personal/team custom skills | Gitignored |
-| `vendor/` | Third-party or vendor-specific skills | Gitignored |
+| `core/` | Shannon 附带的内置技能 | 已提交 |
+| `user/` | 个人/团队自定义技能 | gitignore |
+| `vendor/` | 第三方或供应商特定技能 | gitignore |
 
-## Skill File Format
+## 技能文件格式
 
-Skills are markdown files with YAML frontmatter followed by markdown content:
+技能是带有 YAML frontmatter 后跟 Markdown 内容的 Markdown 文件：
 
 ```markdown
 ---
@@ -34,7 +34,7 @@ name: my-skill
 version: 1.0.0
 author: Your Name
 category: development
-description: Brief description of what this skill does
+description: 该技能功能的简要描述
 requires_tools:
   - file_read
   - file_write
@@ -48,91 +48,91 @@ metadata:
   estimated_duration: 10min
 ---
 
-# Skill Title
+# 技能标题
 
-Your skill instructions in markdown format...
+Markdown 格式的技能说明...
 
-## Step 1: Gather Information
-- Use `file_list` to discover files
-- Read relevant files with `file_read`
+## 步骤 1：收集信息
+- 使用 `file_list` 发现文件
+- 使用 `file_read` 读取相关文件
 
-## Step 2: Perform Analysis
+## 步骤 2：执行分析
 ...
 
-## Output Format
-Provide findings in this structure:
-- Summary
-- Details
-- Recommendations
+## 输出格式
+按以下结构提供发现：
+- 摘要
+- 详细信息
+- 建议
 ```
 
-### Frontmatter Fields
+### Frontmatter 字段
 
-| Field | Required | Type | Default | Description |
+| 字段 | 是否必需 | 类型 | 默认值 | 描述 |
 |-------|----------|------|---------|-------------|
-| `name` | Yes | string | - | Unique identifier (lowercase, hyphens, underscores only) |
-| `version` | No | string | `1.0.0` | Semantic version |
-| `author` | No | string | - | Skill author |
-| `category` | No | string | - | Category for grouping (e.g., development, research) |
-| `description` | No | string | - | Brief description (required if `dangerous: true`) |
-| `requires_tools` | No | list | `[]` | List of tools this skill needs |
-| `requires_role` | No | string | - | Role preset to use (bypasses task decomposition) |
-| `budget_max` | No | int | - | Maximum token budget for execution |
-| `dangerous` | No | bool | `false` | Whether skill performs dangerous operations |
-| `enabled` | No | bool | `true` | Whether skill is active |
-| `metadata` | No | object | `{}` | Additional key-value metadata |
+| `name` | 是 | string | - | 唯一标识符（仅限小写字母、连字符、下划线） |
+| `version` | 否 | string | `1.0.0` | 语义化版本 |
+| `author` | 否 | string | - | 技能作者 |
+| `category` | 否 | string | - | 分组类别（例如 development、research） |
+| `description` | 否 | string | - | 简要描述（若 `dangerous: true` 则必需） |
+| `requires_tools` | 否 | list | `[]` | 该技能需要的工具列表 |
+| `requires_role` | 否 | string | - | 要使用的角色预设（绕过任务分解） |
+| `budget_max` | 否 | int | - | 执行的最大令牌预算 |
+| `dangerous` | 否 | bool | `false` | 技能是否执行危险操作 |
+| `enabled` | 否 | bool | `true` | 技能是否激活 |
+| `metadata` | 否 | object | `{}` | 额外的键值元数据 |
 
-### Name Validation
+### 名称验证
 
-Skill names must contain only:
-- Lowercase letters (a-z)
-- Uppercase letters (A-Z)
-- Numbers (0-9)
-- Hyphens (-)
-- Underscores (_)
+技能名称只能包含：
+- 小写字母（a-z）
+- 大写字母（A-Z）
+- 数字（0-9）
+- 连字符（-）
+- 下划线（_）
 
-## Using Skills via API
+## 通过 API 使用技能
 
-### Execute a Task with a Skill
+### 使用技能执行任务
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Review the authentication module for security issues",
+    "query": "审查认证模块的安全问题",
     "skill": "code-review",
     "session_id": "my-session-123"
   }'
 ```
 
-When a `skill` is specified:
-1. The skill's markdown content becomes the system prompt
-2. If `requires_role` is set, it's applied (bypasses decomposition)
-3. The task runs as single-agent execution with the skill's guidance
+当指定 `skill` 时：
+1. 技能的 Markdown 内容成为系统提示词
+2. 如果设置了 `requires_role`，则应用该角色（绕过分解）
+3. 任务在技能指导下以单代理执行方式运行
 
-### Using Versioned Skills
+### 使用版本化技能
 
-Request a specific version with `name@version`:
+使用 `name@version` 请求特定版本：
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Debug the login failure",
+    "query": "调试登录失败问题",
     "skill": "debugging@1.0.0",
     "session_id": "my-session-123"
   }'
 ```
 
-## API Endpoints
+## API 端点
 
-### List All Skills
+### 列出所有技能
 
 ```bash
 GET /api/v1/skills
 ```
 
-Response:
+响应：
 ```json
 {
   "skills": [
@@ -140,7 +140,7 @@ Response:
       "name": "code-review",
       "version": "1.0.0",
       "category": "development",
-      "description": "Systematic code review workflow",
+      "description": "系统化代码审查工作流",
       "requires_tools": ["file_read", "file_list", "bash"],
       "dangerous": false,
       "enabled": true
@@ -151,19 +151,19 @@ Response:
 }
 ```
 
-### Filter by Category
+### 按类别筛选
 
 ```bash
 GET /api/v1/skills?category=development
 ```
 
-### Get Skill Details
+### 获取技能详情
 
 ```bash
 GET /api/v1/skills/{name}
 ```
 
-Response:
+响应：
 ```json
 {
   "skill": {
@@ -171,13 +171,13 @@ Response:
     "version": "1.0.0",
     "author": "Shannon",
     "category": "development",
-    "description": "Systematic code review workflow",
+    "description": "系统化代码审查工作流",
     "requires_tools": ["file_read", "file_list", "bash"],
     "requires_role": "critic",
     "budget_max": 5000,
     "dangerous": false,
     "enabled": true,
-    "content": "# Code Review Skill\n\nYou are performing..."
+    "content": "# 代码审查技能\n\n你正在执行..."
   },
   "metadata": {
     "source_path": "/app/config/skills/core/code-review.md",
@@ -187,13 +187,13 @@ Response:
 }
 ```
 
-### List Skill Versions
+### 列出技能版本
 
 ```bash
 GET /api/v1/skills/{name}/versions
 ```
 
-Response:
+响应：
 ```json
 {
   "name": "code-review",
@@ -205,11 +205,11 @@ Response:
 }
 ```
 
-## Creating Custom Skills
+## 创建自定义技能
 
-### Step 1: Create the Skill File
+### 步骤 1：创建技能文件
 
-Create a `.md` file in `config/skills/user/`:
+在 `config/skills/user/` 中创建 `.md` 文件：
 
 ```bash
 mkdir -p config/skills/user
@@ -219,7 +219,7 @@ name: my-analysis
 version: 1.0.0
 author: Your Name
 category: analysis
-description: Custom analysis workflow
+description: 自定义分析工作流
 requires_tools:
   - file_read
   - file_list
@@ -227,89 +227,89 @@ requires_role: generalist
 budget_max: 3000
 ---
 
-# My Analysis Skill
+# 我的分析技能
 
-Instructions for the AI agent...
+AI 代理的说明...
 
-## Step 1: Gather Data
+## 步骤 1：收集数据
 ...
 
-## Step 2: Analyze
+## 步骤 2：分析
 ...
 
-## Output Format
+## 输出格式
 ...
 EOF
 ```
 
-### Step 2: Add Directory to SKILLS_PATH (Optional)
+### 步骤 2：将目录添加到 SKILLS_PATH（可选）
 
-If using a custom directory:
+如果使用自定义目录：
 
 ```bash
 export SKILLS_PATH="config/skills/core:config/skills/user:/custom/skills"
 ```
 
-### Step 3: Restart Gateway
+### 步骤 3：重启 Gateway
 
-Skills are loaded at gateway startup:
+技能在 gateway 启动时加载：
 
 ```bash
 docker compose -f deploy/compose/docker-compose.yml restart gateway
 ```
 
-### Step 4: Verify Loading
+### 步骤 4：验证加载
 
 ```bash
 curl -sS http://localhost:8080/api/v1/skills | jq '.skills[].name'
 ```
 
-## Environment Variables
+## 环境变量
 
-| Variable | Default | Description |
+| 变量 | 默认值 | 描述 |
 |----------|---------|-------------|
-| `SKILLS_PATH` | `config/skills/core` (dev) or `/app/config/skills/core` (container) | Colon-separated list of directories to scan for skills |
+| `SKILLS_PATH` | `config/skills/core`（开发）或 `/app/config/skills/core`（容器） | 用冒号分隔的目录列表，用于扫描技能 |
 
-Example:
+示例：
 ```bash
-# Multiple directories
+# 多个目录
 export SKILLS_PATH="/app/config/skills/core:/app/config/skills/user:/custom/vendor-skills"
 ```
 
-## Security Considerations
+## 安全注意事项
 
-### Dangerous Skills
+### 危险技能
 
-Skills with `dangerous: true` indicate they perform potentially destructive operations:
+`dangerous: true` 表示技能执行可能具有破坏性的操作：
 
 ```yaml
 ---
 name: cleanup-files
 dangerous: true
-description: Removes temporary files (REQUIRED when dangerous=true)
+description: 删除临时文件（dangerous=true 时必需）
 ---
 ```
 
-Requirements for dangerous skills:
-- Must have a non-empty `description` field
-- Should be used with explicit user confirmation
-- Consider implementing approval workflows in production
+危险技能的要求：
+- 必须有非空的 `description` 字段
+- 应在用户明确确认后使用
+- 考虑在生产环境中实施审批工作流
 
-### Role-Based Access Control
+### 基于角色的访问控制
 
-The `requires_role` field maps to Shannon's role presets:
+`requires_role` 字段映射到 Shannon 的角色预设：
 
-| Role | Description | Typical Tools |
+| 角色 | 描述 | 典型工具 |
 |------|-------------|---------------|
-| `generalist` | General-purpose agent | file_read, file_list, bash, web_search |
-| `critic` | Code review and analysis | file_read, file_list, bash |
-| `developer` | Development tasks | file_read, file_write, file_list, bash, python_executor |
+| `generalist` | 通用代理 | file_read、file_list、bash、web_search |
+| `critic` | 代码审查与分析 | file_read、file_list、bash |
+| `developer` | 开发任务 | file_read、file_write、file_list、bash、python_executor |
 
-When `requires_role` is set, the orchestrator bypasses task decomposition and runs the task as a single-agent execution with the specified role.
+当设置了 `requires_role` 时，编排器会绕过任务分解，以指定角色作为单代理执行任务。
 
-### Tool Restrictions
+### 工具限制
 
-The `requires_tools` field declares which tools the skill expects:
+`requires_tools` 字段声明技能期望的工具：
 
 ```yaml
 requires_tools:
@@ -318,73 +318,73 @@ requires_tools:
   - bash
 ```
 
-This serves as documentation and can be used for:
-- Pre-validation that required tools are available
-- Access control policies
-- Audit logging
+这作为文档，并可用于：
+- 预验证所需工具是否可用
+- 访问控制策略
+- 审计日志
 
-## Best Practices
+## 最佳实践
 
-1. **Be Specific**: Skills should provide clear, step-by-step guidance
-2. **Structure Output**: Define expected output format in the skill
-3. **Tool Requirements**: Only list tools the skill actually uses
-4. **Version Control**: Use semantic versioning for skill updates
-5. **Test Skills**: Verify skills produce expected results before deployment
-6. **Document Context**: Include what the skill expects as input
-7. **Error Handling**: Guide the agent on handling edge cases
+1. **具体明确**：技能应提供清晰的分步指导
+2. **结构化输出**：在技能中定义预期的输出格式
+3. **工具要求**：仅列出技能实际使用的工具
+4. **版本控制**：对技能更新使用语义化版本
+5. **测试技能**：在部署前验证技能能产生预期结果
+6. **记录上下文**：包含技能期望的输入内容
+7. **错误处理**：指导代理处理边缘情况
 
-## Example: Built-in Skills
+## 示例：内置技能
 
 ### code-review
 
-A systematic code review workflow:
-- Security analysis (injection, XSS, auth gaps)
-- Code quality metrics
-- Performance review
-- Testing coverage analysis
+系统化代码审查工作流：
+- 安全分析（注入、XSS、认证漏洞）
+- 代码质量指标
+- 性能审查
+- 测试覆盖率分析
 
 ### debugging
 
-Structured debugging methodology:
-- Problem understanding
-- Information gathering
-- Hypothesis formation and testing
-- Root cause analysis
-- Solution implementation
+结构化调试方法论：
+- 理解问题
+- 收集信息
+- 提出并验证假设
+- 根因分析
+- 实施解决方案
 
 ### test-driven-dev
 
-Test-driven development workflow:
-- Write failing tests first
-- Implement minimal code to pass
-- Refactor with confidence
+测试驱动开发工作流：
+- 先编写失败的测试
+- 实现最少代码以通过测试
+- 放心地进行重构
 
-## Troubleshooting
+## 故障排查
 
-### Skills Not Loading
+### 技能未加载
 
-1. Check directory exists:
+1. 检查目录是否存在：
    ```bash
    ls -la config/skills/core/
    ```
 
-2. Verify YAML frontmatter syntax:
+2. 验证 YAML frontmatter 语法：
    ```bash
    head -20 config/skills/core/my-skill.md
    ```
 
-3. Check gateway logs for loading errors:
+3. 检查 gateway 日志中的加载错误：
    ```bash
    docker compose -f deploy/compose/docker-compose.yml logs gateway | grep -i skill
    ```
 
-### Skill Not Found (404)
+### 技能未找到（404）
 
-1. Verify skill is enabled (`enabled: true` or omitted)
-2. Check exact name spelling
-3. Ensure file extension is `.md`
-4. Confirm directory is in `SKILLS_PATH`
+1. 验证技能是否启用（`enabled: true` 或省略）
+2. 检查名称拼写是否完全匹配
+3. 确保文件扩展名为 `.md`
+4. 确认目录在 `SKILLS_PATH` 中
 
-### Version Conflicts
+### 版本冲突
 
-If two skills have the same `name@version`, loading fails. Use unique version numbers or place skills in separate directories.
+如果两个技能具有相同的 `name@version`，加载将失败。请使用唯一的版本号或将技能放在不同的目录中。
