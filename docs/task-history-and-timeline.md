@@ -1,31 +1,31 @@
-# Task History & Timeline API
+# 任务历史与时间线 API
 
-This document explains Shannon's task history APIs, persistent event storage, and the deterministic timeline derived from Temporal history.
+本文档说明 Shannon 的任务历史 API、持久化事件存储以及从 Temporal 历史派生的确定性时间线。
 
-## Overview
+## 概述
 
-- Live events: Server‑Sent Events (SSE) for in‑progress tasks.
-- Persistent events: human‑readable app events stored in Postgres (`event_logs`).
-- Deterministic timeline: a concise, human‑oriented summary built from Temporal's canonical workflow history, optionally persisted to `event_logs`.
+- 实时事件：用于进行中任务的 Server-Sent Events（SSE）。
+- 持久化事件：存储在 Postgres（`event_logs`）中的人类可读应用事件。
+- 确定性时间线：从 Temporal 的规范工作流历史构建的简洁、面向人类的摘要，可选择持久化到 `event_logs`。
 
-## Data Stores
+## 数据存储
 
-- Temporal history: stored by Temporal in its own DB (not owned by Shannon).
-- Redis Streams: live streaming buffer (~24h TTL) for SSE.
-- Postgres `event_logs`: long‑term audit/events used by clients and APIs.
+- Temporal 历史：由 Temporal 存储在其自身数据库中（不归 Shannon 所有）。
+- Redis Streams：用于 SSE 的实时流缓冲区（约 24 小时 TTL）。
+- Postgres `event_logs`：客户端和 API 使用的长期审计/事件存储。
 
-## HTTP Endpoints (Gateway)
+## HTTP 端点（Gateway）
 
-- `GET /api/v1/tasks` — List tasks
-  - Query: `limit`, `offset`, `status` (QUEUED|RUNNING|COMPLETED|FAILED|CANCELLED|TIMEOUT), `session_id`
-  - Response: `{ tasks: TaskSummary[], total_count }`
-- `GET /api/v1/tasks/{id}` — Task status
-  - Includes: `query`, `session_id`, `mode` for replay/continuation
-  - Now also includes usage metadata populated by workflows and persisted in DB:
-    - `model_used` (string), `provider` (string)
-    - `usage` (object): `{ total_tokens, input_tokens?, output_tokens?, estimated_cost? }`
+- `GET /api/v1/tasks` — 列出任务
+  - 查询参数：`limit`、`offset`、`status`（QUEUED|RUNNING|COMPLETED|FAILED|CANCELLED|TIMEOUT）、`session_id`
+  - 响应：`{ tasks: TaskSummary[], total_count }`
+- `GET /api/v1/tasks/{id}` — 任务状态
+  - 包含：`query`、`session_id`、`mode` 用于重放/续接
+  - 现在也包含由工作流填充并持久化到数据库的使用量元数据：
+    - `model_used`（字符串）、`provider`（字符串）
+    - `usage`（对象）：`{ total_tokens, input_tokens?, output_tokens?, estimated_cost? }`
 
-Example response (shape):
+响应示例（结构）：
 
 ```json
 {
@@ -42,73 +42,73 @@ Example response (shape):
   }
 }
 ```
-- `GET /api/v1/tasks/{id}/events` — Persistent event history (from `event_logs`)
-  - Query: `limit`, `offset`
-  - Response: `{ events: [...], count }`
-- `GET /api/v1/tasks/{id}/timeline` — Deterministic replay (Temporal → timeline)
-  - Query:
-    - `run_id` — optional run id
-    - `mode` — `summary` (default) or `full`
-    - `include_payloads` — default `false`
-    - `persist` — default `true`; when true, persist asynchronously and return 202
-  - Response:
-    - 202 Accepted: `{ status: "accepted", workflow_id, count }` (persisting async)
-    - 200 OK: `{ workflow_id, events, stats }` (preview only)
+- `GET /api/v1/tasks/{id}/events` — 持久化事件历史（来自 `event_logs`）
+  - 查询参数：`limit`、`offset`
+  - 响应：`{ events: [...], count }`
+- `GET /api/v1/tasks/{id}/timeline` — 确定性重放（Temporal → 时间线）
+  - 查询参数：
+    - `run_id` — 可选的运行 ID
+    - `mode` — `summary`（默认）或 `full`
+    - `include_payloads` — 默认 `false`
+    - `persist` — 默认 `true`；为 true 时异步持久化并返回 202
+  - 响应：
+    - 202 Accepted：`{ status: "accepted", workflow_id, count }`（异步持久化中）
+    - 200 OK：`{ workflow_id, events, stats }`（仅预览）
 
-All endpoints require authentication unless `GATEWAY_SKIP_AUTH=1` is set.
+除非设置 `GATEWAY_SKIP_AUTH=1`，否则所有端点都需要身份验证。
 
-## SSE vs Persistent vs Timeline
+## SSE vs 持久化事件 vs 时间线
 
-- SSE (live):
+- SSE（实时）：
   - `GET /api/v1/stream/sse?workflow_id=...`
-  - Ephemeral, resume‑friendly via `Last-Event-ID`, not stored beyond Redis TTL.
+  - 临时性，通过 `Last-Event-ID` 支持恢复，超出 Redis TTL 后不存储。
 
-- Persistent events (`event_logs`):
-  - App‑level readable events (e.g., TOOL_INVOKED, AGENT_THINKING) are written asynchronously during execution.
-  - Retrieve via `GET /api/v1/tasks/{id}/events`.
+- 持久化事件（`event_logs`）：
+  - 应用级别可读事件（例如 TOOL_INVOKED、AGENT_THINKING）在执行期间异步写入。
+  - 通过 `GET /api/v1/tasks/{id}/events` 检索。
 
-- Deterministic timeline:
-  - Derived from Temporal history to ensure completeness even if streaming was interrupted.
-  - Built on demand; persisted asynchronously when `persist=true`.
-  - Event type prefixes for provenance: `WF_`, `ACT_`, `CHILD_`, `SIG_`, `TIMER_`, `ATTR_`, `MARKER_`.
+- 确定性时间线：
+  - 从 Temporal 历史派生，确保即使在流中断时也能完整。
+  - 按需构建；当 `persist=true` 时异步持久化。
+  - 事件类型前缀用于追溯来源：`WF_`、`ACT_`、`CHILD_`、`SIG_`、`TIMER_`、`ATTR_`、`MARKER_`。
 
-## Examples
+## 示例
 
 ```bash
-# List recent tasks
+# 列出最近的任务
 curl -H "X-API-Key: $API_KEY" \
   "http://localhost:8080/api/v1/tasks?limit=20&offset=0&status=COMPLETED"
 
-# Get persistent events for a task
+# 获取任务的持久化事件
 curl -H "X-API-Key: $API_KEY" \
   "http://localhost:8080/api/v1/tasks/$TASK/events?limit=200" | jq
 
-# Build & persist a timeline (async), then read events
+# 构建并持久化时间线（异步），然后读取事件
 curl -H "X-API-Key: $API_KEY" \
   "http://localhost:8080/api/v1/tasks/$TASK/timeline?mode=summary&persist=true"
 
-# Preview timeline without persisting
+# 预览时间线而不持久化
 curl -H "X-API-Key: $API_KEY" \
   "http://localhost:8080/api/v1/tasks/$TASK/timeline?mode=full&include_payloads=false&persist=false" | jq
 ```
 
-## Event Semantics
+## 事件语义
 
-- Summary mode collapses Activity Scheduled/Started/Completed into a single row with duration and redacts large payloads.
-- Full mode includes raw markers and more granular steps.
-- Badges in the UI denote provenance:
-  - `stream` — app‑emitted SSE events saved to `event_logs`.
-  - `timeline` — derived from Temporal history.
+- 摘要模式将活动已调度/已开始/已完成折叠为单行，包含持续时间，并删除大型负载。
+- 完整模式包含原始标记和更细粒度的步骤。
+- UI 中的徽章表示来源：
+  - `stream` — 应用发出的保存到 `event_logs` 的 SSE 事件。
+  - `timeline` — 从 Temporal 历史派生。
 
-## Performance & Idempotency
+## 性能与幂等性
 
-- Writes to `event_logs` are done asynchronously and batched to avoid impacting workflow latency.
-- The timeline builder fetches Temporal history in pages and can be triggered on demand.
-- Optional future enhancement: add a materialization marker to avoid re‑inserting existing timeline segments for repeated builds.
+- 对 `event_logs` 的写入是异步且批处理的，以避免影响工作流延迟。
+- 时间线构建器分页获取 Temporal 历史，可按需触发。
+- 可选的未来增强：添加物化标记，以避免重复构建时重新插入现有时间线段。
 
-## Schema
+## 模式
 
-`event_logs` (created by `migrations/postgres/004_event_logs.sql`):
+`event_logs`（由 `migrations/postgres/004_event_logs.sql` 创建）：
 
 ```
 (id UUID PK, workflow_id TEXT, type TEXT, agent_id TEXT NULL,
@@ -116,11 +116,11 @@ curl -H "X-API-Key: $API_KEY" \
  created_at TIMESTAMPTZ)
 ```
 
-## Security
+## 安全
 
-- All endpoints respect tenant/user scoping via gateway authentication.
-- Timeline defaults: `mode=summary`, `include_payloads=false` to avoid sensitive data leakage.
+- 所有端点通过网关认证尊重租户/用户范围。
+- 时间线默认：`mode=summary`、`include_payloads=false` 以避免敏感数据泄露。
 
 ## OpenAPI
 
-- The gateway publishes OpenAPI at `GET /openapi.json` including these endpoints.
+- 网关在 `GET /openapi.json` 发布 OpenAPI，包含这些端点。
