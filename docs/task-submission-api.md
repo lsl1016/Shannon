@@ -1,71 +1,71 @@
-# HTTP Task Submission API
+# HTTP 任务提交 API
 
-This page documents all parameters for submitting tasks via the HTTP Gateway.
+本文档记录了通过 HTTP 网关提交任务的所有参数。
 
-## Endpoints
+## 端点
 
-- POST `/api/v1/tasks` — submit a task
-- POST `/api/v1/tasks/stream` — submit and receive a stream URL (201)
+- POST `/api/v1/tasks` — 提交任务
+- POST `/api/v1/tasks/stream` — 提交并接收流式 URL（201）
 
-Response headers include `X-Workflow-ID` and `X-Session-ID`.
+响应头包含 `X-Workflow-ID` 和 `X-Session-ID`。
 
-## Top‑Level Body
+## 顶级请求体
 
-- `query` (string, required) — user query or command
-- `session_id` (string, optional) — session continuity (UUID or custom)
-- `context` (object, optional) — execution context (see below)
-- `mode` (string, optional) — `simple` | `standard` | `complex` | `supervisor` — workflow routing
-  - `simple`: Direct to SimpleTaskWorkflow (no decomposition)
-  - `standard`: Router with standard complexity hint
-  - `complex`: Router with high complexity hint
-  - `supervisor`: Direct to SupervisorWorkflow (multi-agent)
-  - Default: Auto-detect based on query complexity
-- `model_tier` (string, optional) — `small` | `medium` | `large`
-  - Injected into `context.model_tier` and honored by services
-- `model_override` (string, optional) — specific model name (e.g., `gpt-5-2025-08-07`, `MiniMax-M3`, `claude-sonnet-4-5-20250929`)
-  - Top-level alternative to `context.model_override`
-- `provider_override` (string, optional) — force specific provider (e.g., `openai`, `anthropic`, `minimax`, `kimi`)
-  - Top-level alternative to `context.provider_override`
+- `query`（字符串，必需）— 用户查询或命令
+- `session_id`（字符串，可选）— 会话连续性（UUID 或自定义）
+- `context`（对象，可选）— 执行上下文（见下文）
+- `mode`（字符串，可选）— `simple` | `standard` | `complex` | `supervisor` — 工作流路由
+  - `simple`：直接到 SimpleTaskWorkflow（无分解）
+  - `standard`：带标准复杂度提示的路由器
+  - `complex`：带高复杂度提示的路由器
+  - `supervisor`：直接到 SupervisorWorkflow（多代理）
+  - 默认：基于查询复杂度自动检测
+- `model_tier`（字符串，可选）— `small` | `medium` | `large`
+  - 注入到 `context.model_tier` 中，由服务使用
+- `model_override`（字符串，可选）— 特定模型名称（例如 `gpt-5-2025-08-07`、`MiniMax-M3`、`claude-sonnet-4-5-20250929`）
+  - 顶级替代 `context.model_override`
+- `provider_override`（字符串，可选）— 强制指定提供商（例如 `openai`、`anthropic`、`minimax`、`kimi`）
+  - 顶级替代 `context.provider_override`
 
-### Swarm Model Override (via context)
+### Swarm 模型覆盖（通过 context）
 
-For swarm workflows, separate overrides exist for Lead and Worker agents:
+对于 swarm 工作流，Lead 和 Worker 代理有单独的覆盖：
 
-- `context.lead_model_override` (string) — explicit model for Lead agent (e.g., `kimi-k2.5`)
-- `context.lead_provider_override` (string) — explicit provider for Lead (e.g., `kimi`)
-- `context.agent_model_override` (string) — explicit model for all Worker agents (e.g., `MiniMax-M3`)
-- `context.agent_provider_override` (string) — explicit provider for Workers (e.g., `minimax`)
+- `context.lead_model_override`（字符串）— Lead 代理的显式模型（例如 `kimi-k2.5`）
+- `context.lead_provider_override`（字符串）— Lead 的显式提供商（例如 `kimi`）
+- `context.agent_model_override`（字符串）— 所有 Worker 代理的显式模型（例如 `MiniMax-M3`）
+- `context.agent_provider_override`（字符串）— Worker 的显式提供商（例如 `minimax`）
 
 ```bash
-# Swarm with MiniMax workers
+# 使用 MiniMax worker 的 Swarm
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"query": "Compare React vs Vue", "context": {"force_swarm": true, "agent_model_override": "MiniMax-M3", "agent_provider_override": "minimax"}}'
+  -d '{"query": "比较 React 与 Vue", "context": {"force_swarm": true, "agent_model_override": "MiniMax-M3", "agent_provider_override": "minimax"}}'
 
-# Swarm with Kimi Lead + MiniMax workers
+# 使用 Kimi Lead + MiniMax worker 的 Swarm
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"query": "Compare React vs Vue", "context": {"force_swarm": true, "lead_model_override": "kimi-k2.5", "lead_provider_override": "kimi", "agent_model_override": "MiniMax-M3", "agent_provider_override": "minimax"}}'
+  -d '{"query": "比较 React 与 Vue", "context": {"force_swarm": true, "lead_model_override": "kimi-k2.5", "lead_provider_override": "kimi", "agent_model_override": "MiniMax-M3", "agent_provider_override": "minimax"}}'
 ```
 
-### File Attachments (via context)
+### 文件附件（通过 context）
 
-Attachments are sent inside `context.attachments` as base64-encoded objects:
+附件在 `context.attachments` 中以 base64 编码对象形式发送：
 
 ```json
 {
-  "query": "Analyze this data",
+  "query": "分析这些数据",
   "session_id": "...",
   "context": {
     "attachments": [
       {
         "media_type": "image/png",
-        "data": "<base64-encoded-content>",
+        "data": "<base64 编码内容>",
         "filename": "chart.png"
       },
       {
         "media_type": "text/csv",
-        "data": "<base64-encoded-content>",
+        "data": "<base64 编码内容>",
         "filename": "sales.csv"
       }
     ]
@@ -73,94 +73,94 @@ Attachments are sent inside `context.attachments` as base64-encoded objects:
 }
 ```
 
-| Field | Type | Required | Description |
+| 字段 | 类型 | 必需 | 描述 |
 |-------|------|----------|-------------|
-| `media_type` | string | yes | MIME type: `image/png`, `application/pdf`, `text/csv`, `application/json`, etc. |
-| `data` | string | yes | Base64-encoded file content (no `data:` prefix) |
-| `filename` | string | recommended | Display name for the file |
+| `media_type` | 字符串 | 是 | MIME 类型：`image/png`、`application/pdf`、`text/csv`、`application/json` 等 |
+| `data` | 字符串 | 是 | Base64 编码的文件内容（无 `data:` 前缀） |
+| `filename` | 字符串 | 推荐 | 文件的显示名称 |
 
-**Supported types:** Images (png/jpeg/gif/webp), PDF, text files (txt/md/csv/html/json/xml/yaml, source code).
-**Limits:** 30MB HTTP body, 20MB total decoded attachments, per-request.
+**支持的类型：** 图片（png/jpeg/gif/webp）、PDF、文本文件（txt/md/csv/html/json/xml/yaml、源代码）。
+**限制：** HTTP 体 30MB，解码后附件总大小 20MB，按请求计。
 
-### Research Strategy Controls (mapped into context)
+### 研究策略控制（映射到 context）
 
-These optional fields are validated by the Gateway and then added to the workflow `context`:
+这些可选字段由 Gateway 验证，然后添加到工作流 `context` 中：
 
 - `research_strategy` — `quick | standard | deep | academic`
-- `max_concurrent_agents` — integer (1..20)
-- `enable_verification` — boolean (enables claim verification when citations exist)
+- `max_concurrent_agents` — 整数（1..20）
+- `enable_verification` — 布尔值（当存在引用时启用声明验证）
 
-#### Model Tier Architecture (Cost Optimization)
+#### 模型分层架构（成本优化）
 
-Research strategies use a tiered model architecture for cost efficiency:
+研究策略使用分层模型架构以实现成本效率：
 
-| Activity Type | Model Tier | Rationale |
+| 活动类型 | 模型层级 | 理由 |
 |--------------|------------|-----------|
-| Utility activities (coverage eval, fact extraction, subquery gen) | small | Structured output tasks |
-| Agent execution (quick) | small | Fast, cheap research |
-| Agent execution (standard) | medium | Balanced quality/cost |
-| Agent execution (deep) | medium | Iterative refinement compensates |
-| Agent execution (academic) | medium | Iterative refinement compensates |
-| Final synthesis | large | User-facing quality critical |
+| 工具活动（覆盖率评估、事实提取、子查询生成） | small | 结构化输出任务 |
+| 代理执行（quick） | small | 快速、廉价的研究 |
+| 代理执行（standard） | medium | 质量与成本的平衡 |
+| 代理执行（deep） | medium | 迭代细化弥补 |
+| 代理执行（academic） | medium | 迭代细化弥补 |
+| 最终综合 | large | 面向用户的质量至关重要 |
 
-This tiered approach reduces costs by 50-70% while maintaining output quality. See `config/research_strategies.yaml` for configuration.
+这种分层方法可将成本降低 50-70%，同时保持输出质量。参见 `config/research_strategies.yaml` 获取配置。
 
-**Note**: The `max_iterations` parameter is accepted by the gateway for backward compatibility but is not used by current workflows. Use `context.react_max_iterations` to control ReAct loop depth instead.
+**注意**：`max_iterations` 参数为向后兼容而被网关接受，但当前工作流不使用。请使用 `context.react_max_iterations` 控制 ReAct 循环深度。
 
-### Deep Research 2.0 Controls
+### 深度研究 2.0 控制
 
-When `context.force_research: true` is set, Deep Research 2.0 is **enabled by default**:
+当设置 `context.force_research: true` 时，**默认启用**深度研究 2.0：
 
-- `context.iterative_research_enabled` — boolean (default: `true`) — Enable/disable iterative coverage loop
-- `context.iterative_max_iterations` — integer (1-5, default: `3`) — Max iterations for coverage improvement
-- `context.enable_fact_extraction` — boolean (default: `false`) — Extract structured facts into metadata
+- `context.iterative_research_enabled` — 布尔值（默认：`true`）— 启用/禁用迭代覆盖率循环
+- `context.iterative_max_iterations` — 整数（1-5，默认：`3`）— 覆盖率改进的最大迭代次数
+- `context.enable_fact_extraction` — 布尔值（默认：`false`）— 将结构化事实提取到元数据中
 
 ```bash
-# Basic Deep Research 2.0 (default settings)
+# 基础深度研究 2.0（默认设置）
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"query": "AI trends 2025", "context": {"force_research": true}}'
+  -d '{"query": "2025 年 AI 趋势", "context": {"force_research": true}}'
 
-# Custom iterations
+# 自定义迭代次数
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"query": "Compare LLMs", "context": {"force_research": true, "iterative_max_iterations": 2}}'
+  -d '{"query": "比较 LLM", "context": {"force_research": true, "iterative_max_iterations": 2}}'
 
-# Disable 2.0 (use legacy)
+# 禁用 2.0（使用旧版）
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"query": "Explain ML", "context": {"force_research": true, "iterative_research_enabled": false}}'
+  -d '{"query": "解释 ML", "context": {"force_research": true, "iterative_research_enabled": false}}'
 ```
 
-### HITL Research Review (Human-in-the-Loop)
+### HITL 研究审查（人机回环）
 
-Enable human review of research plans before execution. When enabled, the workflow pauses after generating a research plan and waits for user approval.
+在执行前启用研究计划的人工审查。启用后，工作流在生成研究计划后暂停，等待用户批准。
 
-- `context.review_plan` — string (`"auto"` | `"manual"`) — Review mode
-  - `"auto"` (default): Research executes immediately after plan generation
-  - `"manual"`: Workflow pauses for user review; user must approve via Review API
-- `context.require_review` — boolean — Alternative to `review_plan: "manual"` (API-friendly)
-- `context.review_timeout` — integer (seconds, default: `900`) — Timeout for user approval (max 15 minutes)
+- `context.review_plan` — 字符串（`"auto"` | `"manual"`）— 审查模式
+  - `"auto"`（默认）：研究在计划生成后立即执行
+  - `"manual"`：工作流暂停进行用户审查；用户必须通过审查 API 批准
+- `context.require_review` — 布尔值 — `review_plan: "manual"` 的替代（API 友好）
+- `context.review_timeout` — 整数（秒，默认：`900`）— 用户批准的超时时间（最大 15 分钟）
 
-**Requirements:** HITL only applies when `context.force_research: true` is also set.
+**要求：** HITL 仅在同时设置 `context.force_research: true` 时适用。
 
 ```bash
-# Enable HITL review (Desktop-style)
+# 启用 HITL 审查（桌面风格）
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Research quantum computing trends",
+    "query": "研究量子计算趋势",
     "context": {
       "force_research": true,
       "review_plan": "manual"
     }
   }'
 
-# Enable HITL review (API-style)
+# 启用 HITL 审查（API 风格）
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Analyze AI market dynamics",
+    "query": "分析 AI 市场动态",
     "context": {
       "force_research": true,
       "require_review": true,
@@ -169,25 +169,25 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-**HITL Workflow:**
-1. Submit task with `review_plan: "manual"` or `require_review: true`
-2. Workflow generates initial research plan → emits `RESEARCH_PLAN_READY` event
-3. User reviews plan via Review API (see below)
-4. User can provide feedback (up to 10 rounds) or approve
-5. On approval → emits `RESEARCH_PLAN_APPROVED` → research execution begins
-6. On timeout → workflow fails with error
+**HITL 工作流：**
+1. 以 `review_plan: "manual"` 或 `require_review: true` 提交任务
+2. 工作流生成初始研究计划 → 发出 `RESEARCH_PLAN_READY` 事件
+3. 用户通过审查 API 审查计划（见下文）
+4. 用户可以提供反馈（最多 10 轮）或批准
+5. 批准后 → 发出 `RESEARCH_PLAN_APPROVED` → 研究执行开始
+6. 超时后 → 工作流以错误失败
 
-See [Review API](#review-api) for the feedback/approval endpoints.
+反馈/批准端点请参见[审查 API](#review-api)。
 
-### Research Strategy Presets
+### 研究策略预设
 
-Apply preset configurations for research workflows:
+为研究工作流应用预设配置：
 
 ```bash
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "Weekly research briefing",
+    "query": "每周研究简报",
     "research_strategy": "deep",
     "max_concurrent_agents": 7,
     "enable_verification": true,
@@ -197,34 +197,34 @@ curl -sS -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-### Citations (optional, mapped into context)
+### 引用（可选，映射到 context）
 
-- `context.enable_citations` — boolean toggle for citation collection/integration in non‑research workflows
-  - ReactWorkflow: opt‑in. When true, collects citations from tool outputs (e.g., web_search, web_fetch) and appends a Sources section to the final report.
-  - DAGWorkflow: opt‑out. Enabled by default; set to false to skip citation collection and Sources section.
-  - ResearchWorkflow: unchanged; always manages citations internally.
+- `context.enable_citations` — 布尔值开关，用于在非研究工作流中收集/集成引用
+  - ReactWorkflow：选择加入。为 true 时，从工具输出（例如 web_search、web_fetch）收集引用，并在最终报告末尾附加来源部分。
+  - DAGWorkflow：选择退出。默认启用；设为 false 以跳过引用收集和来源部分。
+  - ResearchWorkflow：不变；始终在内部管理引用。
 
-Example (enable citations in React):
+示例（在 React 中启用引用）：
 
 ```bash
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "Explain XKCD-style encryption best practices",
+    "query": "解释 XKCD 风格的加密最佳实践",
     "mode": "standard",
     "context": {"enable_citations": true}
   }'
 ```
 
-### Full Context Example
+### 完整上下文示例
 
-Combining session, mode, model tier, and custom parameters:
+结合会话、模式、模型层级和自定义参数：
 
 ```bash
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "Summarize our Q3 results",
+    "query": "总结我们的 Q3 成果",
     "session_id": "sales-2025-q3",
     "mode": "supervisor",
     "model_tier": "large",
@@ -235,47 +235,47 @@ curl -sS -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-## Recognized `context.*` Keys
+## 已识别的 `context.*` 键
 
-- `role` — role preset (e.g., `analysis`, `research`, `writer`). When present, the orchestrator bypasses `/agent/decompose` and creates a single-subtask plan, letting the role-specific agent handle any internal multi-step/tool logic.
-- `system_prompt` — overrides role prompt; supports `${var}` from `prompt_params`
-- `prompt_params` — arbitrary params for prompts/tools/adapters
-- `model_tier` — fallback when top‑level not provided
-- `model_override` — specific model (e.g., `gpt-5-2025-08-07`, `gpt-5-nano-2025-08-07`, `gpt-5-pro-2025-10-06`)
-  - Can be specified at top-level or in context
-  - Falls back to next provider if model unavailable on primary provider
-- `provider_override` — force specific provider (e.g., `openai`, `anthropic`, `google`)
-  - Can be specified at top-level or in context
-  - Short-circuits provider selection logic
-  - Falls back to tier-based selection if provider fails
-- `template` — template name
-- `template_version` — template version (string)
-- `template_name` — alias for `template` (accepted)
-- `disable_ai` — true to require template only (no AI fallback)
-  - ⚠️ Cannot be combined with `model_tier`, `model_override`, or `provider_override` (returns 400)
-- Advanced context window controls:
-  - `history_window_size`, `use_case_preset`, `primers_count`, `recents_count`
-  - `compression_trigger_ratio`, `compression_target_ratio`
-- Deep Research 2.0 controls (when `force_research: true`):
-  - `iterative_research_enabled` — Enable/disable iterative loop (default: `true`)
-  - `iterative_max_iterations` — Max iterations 1-5 (default: `3`)
-  - `enable_fact_extraction` — Extract structured facts (default: `false`)
+- `role` — 角色预设（例如 `analysis`、`research`、`writer`）。当存在时，编排器绕过 `/agent/decompose` 并创建单子任务计划，让特定角色的代理处理任何内部多步骤/工具逻辑。
+- `system_prompt` — 覆盖角色提示词；支持 `prompt_params` 中的 `${var}`
+- `prompt_params` — 用于提示词/工具/适配器的任意参数
+- `model_tier` — 当顶级未提供时的回退
+- `model_override` — 特定模型（例如 `gpt-5-2025-08-07`、`gpt-5-nano-2025-08-07`、`gpt-5-pro-2025-10-06`）
+  - 可在顶级或 context 中指定
+  - 如果模型在主提供商上不可用，回退到下一个提供商
+- `provider_override` — 强制特定提供商（例如 `openai`、`anthropic`、`google`）
+  - 可在顶级或 context 中指定
+  - 短路提供商选择逻辑
+  - 如果提供商失败，回退到基于层级的选择
+- `template` — 模板名称
+- `template_version` — 模板版本（字符串）
+- `template_name` — `template` 的别名（已接受）
+- `disable_ai` — true 表示仅需要模板（无 AI 回退）
+  - ⚠️ 不能与 `model_tier`、`model_override` 或 `provider_override` 组合（返回 400）
+- 高级上下文窗口控制：
+  - `history_window_size`、`use_case_preset`、`primers_count`、`recents_count`
+  - `compression_trigger_ratio`、`compression_target_ratio`
+- 深度研究 2.0 控制（当 `force_research: true` 时）：
+  - `iterative_research_enabled` — 启用/禁用迭代循环（默认：`true`）
+  - `iterative_max_iterations` — 最大迭代次数 1-5（默认：`3`）
+  - `enable_fact_extraction` — 提取结构化事实（默认：`false`）
 
-## Common Scenarios
+## 常见场景
 
-### Full-Featured AI Execution
+### 全功能 AI 执行
 
 ```bash
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "Analyze August website traffic trends",
+    "query": "分析八月网站流量趋势",
     "session_id": "analytics-session-123",
     "mode": "supervisor",
     "model_tier": "large",
     "context": {
       "role": "analysis",
-      "system_prompt": "You are an analyst specializing in web analytics.",
+      "system_prompt": "你是一位专注于网站分析的分析师。",
       "prompt_params": {
         "profile_id": "49598h6e",
         "aid": "fcb1cd29-9104-47b1-b914-31db6ba30c1a",
@@ -290,46 +290,46 @@ curl -sS -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-**Parameter Annotations:**
-- `query` (REQUIRED) — Task to execute
-- `session_id` (OPTIONAL) — Session ID for multi-turn conversations (auto-generated if omitted)
-- `mode` (OPTIONAL) — Execution mode: "simple" or "supervisor" (default: based on complexity)
-- `model_tier` (OPTIONAL) — Model size: "small", "medium", or "large" (default: "small")
-- `context.role` (OPTIONAL) — Role preset name (e.g., "analysis", "research", "writer")
-- `context.system_prompt` (OPTIONAL) — Custom system prompt (overrides role preset)
-- `context.prompt_params` (OPTIONAL) — Arbitrary key-value pairs passed to tools/adapters
-  - `profile_id`, `aid`, `current_date` are EXAMPLES — use any keys you need
-- `context.history_window_size` (OPTIONAL) — Max conversation history messages (default: 50)
-- `context.primers_count` (OPTIONAL) — Early messages to keep (default: 5)
-- `context.recents_count` (OPTIONAL) — Recent messages to keep (default: 15)
-- `context.compression_trigger_ratio` (OPTIONAL) — Trigger at % of window (default: 0.8)
-- `context.compression_target_ratio` (OPTIONAL) — Compress to % of window (default: 0.5)
+**参数注释：**
+- `query`（必需）— 要执行的任务
+- `session_id`（可选）— 多轮对话的会话 ID（省略则自动生成）
+- `mode`（可选）— 执行模式："simple" 或 "supervisor"（默认：基于复杂度）
+- `model_tier`（可选）— 模型大小："small"、"medium" 或 "large"（默认："small"）
+- `context.role`（可选）— 角色预设名称（例如 "analysis"、"research"、"writer"）
+- `context.system_prompt`（可选）— 自定义系统提示词（覆盖角色预设）
+- `context.prompt_params`（可选）— 传递给工具/适配器的任意键值对
+  - `profile_id`、`aid`、`current_date` 是**示例** — 使用你需要的任何键
+- `context.history_window_size`（可选）— 最大对话历史消息数（默认：50）
+- `context.primers_count`（可选）— 保留的早期消息数（默认：5）
+- `context.recents_count`（可选）— 保留的最近消息数（默认：15）
+- `context.compression_trigger_ratio`（可选）— 触发压缩的窗口百分比（默认：0.8）
+- `context.compression_target_ratio`（可选）— 压缩到的窗口百分比（默认：0.5）
 
-### Force Model Tier
+### 强制模型层级
 
-Top-level `model_tier` wins over `context.model_tier`:
-
-```bash
-curl -sS -X POST http://localhost:8080/api/v1/tasks \
-  -H 'Content-Type: application/json' \
-  -d '{"query": "Complex analysis", "model_tier": "large"}'
-```
-
-### Force Specific Model
+顶级 `model_tier` 优先于 `context.model_tier`：
 
 ```bash
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
-  -d '{"query": "Write a plan", "context": {"model_override": "gpt-5-2025-08-07"}}'
+  -d '{"query": "复杂分析", "model_tier": "large"}'
 ```
 
-### Template-Only Execution (No AI)
+### 强制特定模型
+
+```bash
+curl -sS -X POST http://localhost:8080/api/v1/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{"query": "编写计划", "context": {"model_override": "gpt-5-2025-08-07"}}'
+```
+
+### 仅模板执行（无 AI）
 
 ```bash
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "Weekly research briefing",
+    "query": "每周研究简报",
     "context": {
       "template": "research_summary",
       "template_version": "1.0.0",
@@ -339,73 +339,73 @@ curl -sS -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-### Supervisor Mode
+### Supervisor 模式
 
 ```bash
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
-  -d '{"query": "Assess system reliability", "mode": "supervisor"}'
+  -d '{"query": "评估系统可靠性", "mode": "supervisor"}'
 ```
 
-### Override Model (Top-Level)
+### 覆盖模型（顶级）
 
 ```bash
-# Force specific model with top-level override
+# 使用顶级覆盖强制特定模型
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
-  -d '{"query": "Write a plan", "model_override": "gpt-5-2025-08-07"}'
+  -d '{"query": "编写计划", "model_override": "gpt-5-2025-08-07"}'
 
-# Example with a specific GPT‑5 model
+# 使用特定 GPT‑5 模型的示例
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
-  -d '{"query": "Analyze data", "model_override": "gpt-5-2025-08-07"}'
+  -d '{"query": "分析数据", "model_override": "gpt-5-2025-08-07"}'
 ```
 
-### Override Provider
+### 覆盖提供商
 
 ```bash
-# Force OpenAI provider
+# 强制 OpenAI 提供商
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
-  -d '{"query": "Count to 5", "provider_override": "openai"}'
+  -d '{"query": "数到 5", "provider_override": "openai"}'
 
-# Force Anthropic provider via context
+# 通过 context 强制 Anthropic 提供商
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
-  -d '{"query": "Explain quantum computing", "context": {"provider_override": "anthropic"}}'
+  -d '{"query": "解释量子计算", "context": {"provider_override": "anthropic"}}'
 ```
 
-### Complex Mode with Overrides
+### 复杂模式与覆盖
 
 ```bash
-# Combine mode, model, and provider overrides
+# 组合模式、模型和提供商覆盖
 curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "Comprehensive market analysis",
+    "query": "综合市场分析",
     "mode": "complex",
     "model_override": "gpt-5-pro-2025-10-06",
     "provider_override": "openai"
   }'
 ```
 
-## Validation & Priority Rules
+## 验证与优先级规则
 
-- `model_tier`: only `small|medium|large` (400 on invalid)
-- `mode`: only `simple|standard|complex|supervisor` (400 on invalid)
-- Top‑level `model_tier` overrides `context.model_tier`
-- Top‑level `model_override` overrides `context.model_override`
-- Top‑level `provider_override` overrides `context.provider_override`
-- `template_name` is accepted as an alias for `template`
-- **Conflict Validation**: `disable_ai: true` cannot be combined with:
-  - `model_tier` (top-level or context)
-  - `model_override` (top-level or context)
-  - `provider_override` (top-level or context)
-  - Gateway returns 400 with error message when conflicts detected
+- `model_tier`：仅 `small|medium|large`（无效则 400）
+- `mode`：仅 `simple|standard|complex|supervisor`（无效则 400）
+- 顶级 `model_tier` 覆盖 `context.model_tier`
+- 顶级 `model_override` 覆盖 `context.model_override`
+- 顶级 `provider_override` 覆盖 `context.provider_override`
+- `template_name` 作为 `template` 的别名被接受
+- **冲突验证**：`disable_ai: true` 不能与以下组合：
+  - `model_tier`（顶级或 context）
+  - `model_override`（顶级或 context）
+  - `provider_override`（顶级或 context）
+  - 检测到冲突时 Gateway 返回 400 及错误消息
 
-## Task Status Response Example
+## 任务状态响应示例
 
-After submitting a task, poll `GET /api/v1/tasks/{id}`. Typical response shape when completed:
+提交任务后，轮询 `GET /api/v1/tasks/{id}`。完成时的典型响应结构：
 
 ```json
 {
@@ -435,9 +435,9 @@ After submitting a task, poll `GET /api/v1/tasks/{id}`. Typical response shape w
 }
 ```
 
-### Model Breakdown (Multi-Model Tasks)
+### 模型分解（多模型任务）
 
-For complex tasks using multiple models (e.g., deep research with agent execution + synthesis), `metadata.model_breakdown` provides detailed per-model usage:
+对于使用多个模型的复杂任务（例如带有代理执行 + 综合的深度研究），`metadata.model_breakdown` 提供详细的每个模型使用情况：
 
 ```json
 {
@@ -465,141 +465,141 @@ For complex tasks using multiple models (e.g., deep research with agent executio
 }
 ```
 
-**Note**: `model_used` shows the most frequently used model, while `model_breakdown` provides complete visibility into all models used during task execution. This is particularly useful for understanding cost distribution in research workflows where synthesis uses a different (larger) tier than agent execution. Legacy fields such as `agent_usages` may still appear in metadata for backward compatibility, but they are not complete; clients should prefer `model_breakdown` for any usage or cost analysis.
+**注意**：`model_used` 显示最常用的模型，而 `model_breakdown` 提供任务执行期间使用的所有模型的完整可见性。这对于理解研究工作流中的成本分布特别有用，其中综合使用的层级（更大）与代理执行不同。为向后兼容，旧字段如 `agent_usages` 可能仍出现在元数据中，但它们不完整；客户应优先使用 `model_breakdown` 进行任何使用量或成本分析。
 
-## ⚠️ Common Mistakes to Avoid
+## ⚠️ 避免的常见错误
 
-**1. Don't use both `template` and `template_name`**
+**1. 不要同时使用 `template` 和 `template_name`**
 ```json
-// ❌ BAD: Redundant aliases
+// ❌ 错误：冗余别名
 {"context": {"template": "research_summary", "template_name": "research_summary"}}
 
-// ✅ GOOD: Use template only
+// ✅ 正确：仅使用 template
 {"context": {"template": "research_summary"}}
 ```
 
-**2. Don't combine `disable_ai: true` with model parameters (Gateway returns 400)**
+**2. 不要将 `disable_ai: true` 与模型参数组合（Gateway 返回 400）**
 ```json
-// ❌ BAD: Conflict - gateway rejects with HTTP 400
+// ❌ 错误：冲突 - gateway 以 HTTP 400 拒绝
 {"context": {"disable_ai": true, "model_tier": "large"}}
 {"model_tier": "large", "context": {"disable_ai": true}}
 {"model_override": "gpt-5-2025-08-07", "context": {"disable_ai": true}}
 {"context": {"disable_ai": true, "provider_override": "openai"}}
 
-// ✅ GOOD: Template-only execution (no model params)
+// ✅ 正确：仅模板执行（无模型参数）
 {"context": {"template": "summary", "disable_ai": true}}
 
-// ✅ GOOD: AI execution with model control (no disable_ai)
+// ✅ 正确：带模型控制的 AI 执行（无 disable_ai）
 {"model_tier": "large", "model_override": "gpt-5-2025-08-07"}
 {"context": {"provider_override": "openai"}}
 ```
 
-**3. Don't duplicate `model_tier` (top-level wins)**
+**3. 不要重复 `model_tier`（顶级优先）**
 ```json
-// ❌ BAD: Confusing duplicate (context.model_tier ignored)
+// ❌ 错误：重复造成混淆（context.model_tier 被忽略）
 {"model_tier": "large", "context": {"model_tier": "small"}}
 
-// ✅ GOOD: Specify once at top level
+// ✅ 正确：仅在顶级指定一次
 {"model_tier": "large"}
 
-// ✅ GOOD: Or only in context (as fallback)
+// ✅ 正确：或仅在 context 中指定（作为回退）
 {"context": {"model_tier": "large"}}
 ```
 
-## Notes
+## 注意
 
-### Model Selection Behavior
-- `model_override` selects a specific model by name
-- `provider_override` forces provider selection (short-circuits tier-based routing)
-- When both specified: use specified model from specified provider
-- Falls back to next provider if primary fails
+### 模型选择行为
+- `model_override` 按名称选择特定模型
+- `provider_override` 强制提供商选择（短路基于层级的路由）
+- 当两者都指定时：使用指定提供商的指定模型
+- 如果主提供商失败，回退到下一个提供商
 
-### Model Naming
-Use canonical model names only (no legacy aliases). If a model is unavailable on the chosen provider, tier-based fallback applies.
+### 模型命名
+仅使用规范模型名称（无旧别名）。如果所选模型在所选提供商上不可用，则应用基于层级的回退。
 
-### Fallback Behavior
-- If specified model unavailable on requested provider → tries next provider
-- If specified provider fails → falls back to tier-based selection
-- System prioritizes task completion over strict parameter adherence
+### 回退行为
+- 如果指定模型在请求的提供商上不可用 → 尝试下一个提供商
+- 如果指定提供商失败 → 回退到基于层级的选择
+- 系统优先保证任务完成，而非严格遵循参数
 
-### Additional Features
-- Use header `Idempotency-Key` to safely retry submissions; gateway caches 2xx responses for 24h.
-- SSE streaming endpoint is returned by `POST /api/v1/tasks/stream`.
-- All context parameters are optional; defaults are applied when not specified.
+### 附加功能
+- 使用头部 `Idempotency-Key` 安全重试提交；gateway 缓存 2xx 响应 24 小时。
+- SSE 流式端点由 `POST /api/v1/tasks/stream` 返回。
+- 所有上下文参数均为可选；未指定时应用默认值。
 
-### Response Format
-- **Gateway API Response**: `/api/v1/tasks/{task_id}` returns a `result` field containing the raw LLM response
-  - The `result` field contains plain text or JSON string responses
-  - An optional `response` field contains parsed JSON if the result is valid JSON (for backward compatibility)
+### 响应格式
+- **Gateway API 响应**：`/api/v1/tasks/{task_id}` 返回包含原始 LLM 响应的 `result` 字段
+  - `result` 字段包含纯文本或 JSON 字符串响应
+  - 如果结果是有效 JSON，可选的 `response` 字段包含解析后的 JSON（用于向后兼容）
 
 ---
 
-## Review API
+## 审查 API
 
-The Review API enables human-in-the-loop (HITL) interaction with research plan generation. These endpoints are only available when a task was submitted with `review_plan: "manual"` or `require_review: true`.
+审查 API 支持人机回环（HITL）与研究计划生成的交互。这些端点仅在任务以 `review_plan: "manual"` 或 `require_review: true` 提交时可用。
 
-### Get Review State
+### 获取审查状态
 
-Retrieve the current review conversation state.
+检索当前审查对话状态。
 
 ```
 GET /api/v1/tasks/{workflowID}/review
 ```
 
-**Headers:**
-- `Authorization: Bearer <token>` (required in production)
+**头部：**
+- `Authorization: Bearer <token>`（生产环境必需）
 
-**Response:**
+**响应：**
 ```json
 {
   "status": "reviewing",
   "round": 2,
   "version": 3,
-  "current_plan": "Research plan content...",
-  "query": "Original query",
+  "current_plan": "研究计划内容...",
+  "query": "原始查询",
   "rounds": [
-    {"role": "assistant", "message": "Initial plan...", "timestamp": "2025-01-29T10:00:00Z"},
-    {"role": "user", "message": "Can you focus more on X?", "timestamp": "2025-01-29T10:01:00Z"},
-    {"role": "assistant", "message": "Updated plan...", "timestamp": "2025-01-29T10:01:30Z"}
+    {"role": "assistant", "message": "初始计划...", "timestamp": "2025-01-29T10:00:00Z"},
+    {"role": "user", "message": "你能更多关注 X 吗？", "timestamp": "2025-01-29T10:01:00Z"},
+    {"role": "assistant", "message": "更新后的计划...", "timestamp": "2025-01-29T10:01:30Z"}
   ]
 }
 ```
 
-**Response Headers:**
-- `ETag`: Version number for optimistic concurrency
+**响应头部：**
+- `ETag`：用于乐观并发的版本号
 
-### Submit Feedback or Approval
+### 提交反馈或批准
 
-Submit user feedback to refine the plan, or approve to start research execution.
+提交用户反馈以细化计划，或批准以开始研究执行。
 
 ```
 POST /api/v1/tasks/{workflowID}/review
 ```
 
-**Headers:**
-- `Authorization: Bearer <token>` (required in production)
-- `If-Match: <version>` (optional, for optimistic concurrency)
+**头部：**
+- `Authorization: Bearer <token>`（生产环境必需）
+- `If-Match: <version>`（可选，用于乐观并发）
 - `Content-Type: application/json`
 
-**Request Body:**
+**请求体：**
 ```json
 {
   "action": "feedback",
-  "message": "Please focus more on recent developments in 2025"
+  "message": "请更多关注 2025 年的近期发展"
 }
 ```
 
-| Field | Type | Required | Description |
+| 字段 | 类型 | 必需 | 描述 |
 |-------|------|----------|-------------|
-| `action` | string | Yes | `"feedback"` or `"approve"` |
-| `message` | string | For feedback | User's feedback message |
+| `action` | 字符串 | 是 | `"feedback"` 或 `"approve"` |
+| `message` | 字符串 | 对于 feedback | 用户的反馈消息 |
 
-**Feedback Response:**
+**反馈响应：**
 ```json
 {
   "status": "reviewing",
   "plan": {
-    "message": "Updated research plan based on your feedback...",
+    "message": "基于您的反馈更新后的研究计划...",
     "round": 3,
     "version": 4,
     "intent": "ready"
@@ -607,58 +607,58 @@ POST /api/v1/tasks/{workflowID}/review
 }
 ```
 
-**Approval Response:**
+**批准响应：**
 ```json
 {
   "status": "approved",
-  "message": "Research started"
+  "message": "研究已开始"
 }
 ```
 
-### Intent Values
+### Intent 值
 
-The `intent` field in feedback responses indicates the LLM's assessment:
+反馈响应中的 `intent` 字段表示 LLM 的评估：
 
-| Intent | Description |
+| Intent | 描述 |
 |--------|-------------|
-| `feedback` | LLM is asking clarifying questions; plan not ready |
-| `ready` | LLM proposes a concrete plan; user can approve or refine |
-| `execute` | User's message explicitly signals approval (rare) |
+| `feedback` | LLM 正在询问澄清问题；计划未就绪 |
+| `ready` | LLM 提出具体计划；用户可以批准或细化 |
+| `execute` | 用户的消息明确表示批准（少见） |
 
-### Error Responses
+### 错误响应
 
-| Status | Description |
+| 状态 | 描述 |
 |--------|-------------|
-| `404` | Review session not found or expired |
-| `403` | Not the task owner |
-| `409` | Version conflict (stale `If-Match`) or max rounds (10) reached |
-| `502` | LLM service unavailable |
+| `404` | 审查会话未找到或已过期 |
+| `403` | 不是任务所有者 |
+| `409` | 版本冲突（过时的 `If-Match`）或已达到最大轮次（10） |
+| `502` | LLM 服务不可用 |
 
-### Example: Complete HITL Flow
+### 示例：完整 HITL 流程
 
 ```bash
-# 1. Submit task with HITL enabled
+# 1. 启用 HITL 提交任务
 RESPONSE=$(curl -sS -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"query": "Research AI safety trends", "context": {"force_research": true, "review_plan": "manual"}}')
+  -d '{"query": "研究 AI 安全趋势", "context": {"force_research": true, "review_plan": "manual"}}')
 WORKFLOW_ID=$(echo $RESPONSE | jq -r '.workflow_id')
 
-# 2. Wait for RESEARCH_PLAN_READY event via SSE
+# 2. 通过 SSE 等待 RESEARCH_PLAN_READY 事件
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WORKFLOW_ID&types=RESEARCH_PLAN_READY"
 
-# 3. Get current review state
+# 3. 获取当前审查状态
 curl -sS "http://localhost:8080/api/v1/tasks/$WORKFLOW_ID/review"
 
-# 4. Provide feedback
+# 4. 提供反馈
 curl -sS -X POST "http://localhost:8080/api/v1/tasks/$WORKFLOW_ID/review" \
   -H "Content-Type: application/json" \
-  -d '{"action": "feedback", "message": "Focus more on alignment research"}'
+  -d '{"action": "feedback", "message": "更多关注对齐研究"}'
 
-# 5. Approve the plan
+# 5. 批准计划
 curl -sS -X POST "http://localhost:8080/api/v1/tasks/$WORKFLOW_ID/review" \
   -H "Content-Type: application/json" \
   -d '{"action": "approve"}'
 
-# 6. Research execution begins, monitor via SSE
+# 6. 研究执行开始，通过 SSE 监控
 curl -N "http://localhost:8081/stream/sse?workflow_id=$WORKFLOW_ID"
 ```
