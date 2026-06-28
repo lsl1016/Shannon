@@ -1,0 +1,514 @@
+从这份文档看，这个“工作流控制”**大概率是基于 Temporal Go SDK 实现的**，不是普通的 goroutine / cron / 状态机框架。
+
+判断依据非常明显，文档里出现了这些 Temporal 的典型 API：
+
+```go
+workflow.Context
+workflow.Await()
+workflow.GetInfo(ctx)
+workflow.GetLogger(ctx)
+workflow.ExecuteChildWorkflow()
+workflow.Execution
+workflow.GetVersion()
+workflow.DefaultVersion
+```
+
+这些基本都是 **Temporal Workflow Go SDK** 的接口风格。整体实现方式可以理解为：**用 Temporal 负责工作流调度、状态持久化、重放和子工作流；业务自己封装了一套 pause / resume / cancel 控制信号机制。**
+
+---
+
+## 1. 它不是“直接暂停线程”，而是“协作式暂停”
+
+这套设计的核心不是强行中断正在执行的代码，而是：
+
+> 工作流代码主动在关键位置插入检查点，到了检查点才判断是否暂停、恢复、取消。
+
+也就是文档里的：
+
+```go
+controlHandler.CheckPausePoint(ctx, "pre_execution")
+```
+
+它的本质类似：
+
+```go
+func CheckPausePoint(ctx workflow.Context, checkpoint string) error {
+    if cancelled {
+        return error
+    }
+
+    if paused {
+        emitPausedEvent(checkpoint)
+
+        workflow.Await(ctx, func() bool {
+            return !paused || cancelled
+        })
+    }
+
+    if cancelled {
+        return error
+    }
+
+    return nil
+}
+```
+
+所以它是**协作式控制**，不是抢占式控制。
+
+这意味着：
+
+* 暂停信号可以立即发送；
+* 但是工作流不会立刻停；
+* 它会等当前 LLM 调用、Activity、子流程片段执行完成；
+* 到达下一个检查点时才真正阻塞。
+
+这个设计是合理的，因为工作流中间可能正在调用模型、执行工具、访问数据库、调用外部服务，直接打断很容易导致状态不一致。
+
+---
+
+## 2. 用到的框架：Temporal Go SDK
+
+从文档判断，底层应该是：
+
+```text
+Temporal Workflow Engine
+Temporal Go SDK
+```
+
+可能的技术栈结构是：
+
+```text
+前端
+  |
+  | HTTP / gRPC
+  v
+后端 API 服务
+  |
+  | PauseTask / ResumeTask / CancelTask
+  v
+Temporal Client
+  |
+  | SignalWorkflow / QueryWorkflow
+  v
+Temporal Workflow
+  |
+  | workflow.SetSignalHandler
+  | workflow.SetQueryHandler
+  | workflow.Await
+  | workflow.ExecuteChildWorkflow
+  v
+子工作流 / Activity / Agent 执行逻辑
+```
+
+其中，文档里的 gRPC 端点：
+
+```protobuf
+rpc PauseTask(PauseTaskRequest) returns (PauseTaskResponse);
+rpc ResumeTask(ResumeTaskRequest) returns (ResumeTaskResponse);
+rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+rpc GetControlState(GetControlStateRequest) returns (GetControlStateResponse);
+```
+
+应该不是 Temporal 原生 API，而是 Shannon 系统自己封装的一层服务接口。
+
+后端收到请求后，大概率会调用 Temporal Client：
+
+```go
+client.SignalWorkflow(ctx, workflowID, runID, "pause_v1", payload)
+client.SignalWorkflow(ctx, workflowID, runID, "resume_v1", payload)
+client.SignalWorkflow(ctx, workflowID, runID, "cancel_v1", payload)
+client.QueryWorkflow(ctx, workflowID, runID, "control_state_v1")
+```
+
+---
+
+## 3. 暂停是怎么实现的？
+
+暂停信号是 `pause_v1`。
+
+它的实现逻辑应该是：
+
+```text
+用户点击暂停
+  -> 后端 PauseTask
+  -> Temporal Client 发送 pause_v1 signal
+  -> 父工作流 SignalHandler 收到信号
+  -> 修改内存中的 control state：IsPaused = true
+  -> 向已注册子工作流传播 pause_v1
+  -> 工作流继续执行当前正在做的事情
+  -> 到达下一个 CheckPausePoint
+  -> workflow.Await 阻塞
+  -> 发出 workflow.paused SSE 事件
+```
+
+关键点是这个：
+
+```go
+workflow.Await(ctx, func() bool {
+    return !controlState.IsPaused || controlState.IsCancelled
+})
+```
+
+Temporal 的 `workflow.Await()` 不是普通的 sleep，也不是 for 循环轮询。
+
+它的意义是：**让工作流在 Temporal 内部挂起，直到条件满足。**
+
+所以它不会浪费 CPU，也不会靠定时器一直查。
+
+---
+
+## 4. 恢复是怎么实现的？
+
+恢复信号是 `resume_v1`。
+
+恢复逻辑大概是：
+
+```text
+用户点击恢复
+  -> 后端 ResumeTask
+  -> Temporal Client 发送 resume_v1 signal
+  -> 工作流 SignalHandler 收到信号
+  -> IsPaused = false
+  -> workflow.Await 的条件变成 true
+  -> 被阻塞的检查点继续往后执行
+  -> 发出 workflow.resumed SSE 事件
+```
+
+也就是说，恢复不是重新启动工作流，而是让之前阻塞在检查点的 workflow 继续执行。
+
+它依赖的是 Temporal 的事件历史和确定性重放机制。
+
+---
+
+## 5. 取消是怎么实现的？
+
+取消信号是 `cancel_v1`。
+
+这里要注意：文档里的取消**不一定是 Temporal 原生 CancelWorkflowExecution**，更像是业务层自定义取消。
+
+它的行为是：
+
+```text
+用户点击取消
+  -> 后端 CancelTask
+  -> Temporal Client 发送 cancel_v1 signal
+  -> 工作流状态 IsCancelled = true
+  -> 传播给子工作流
+  -> 下一个 CheckPausePoint 返回错误
+  -> Workflow 以取消错误结束
+  -> 发出 workflow.cancelling / workflow.cancelled 事件
+```
+
+也就是说，这也是一种**协作式取消**。
+
+和 Temporal 原生取消的区别是：
+
+| 类型            | 说明                         |
+| ------------- | -------------------------- |
+| Temporal 原生取消 | 直接请求取消 Workflow / Activity |
+| 这里的 cancel_v1 | 业务层自定义信号，工作流到检查点后主动退出      |
+
+这种方式的好处是可以更精细地控制清理逻辑、SSE 事件、子工作流传播、状态展示。
+
+---
+
+## 6. 子工作流控制是怎么实现的？
+
+文档里这一段很关键：
+
+```go
+childFuture := workflow.ExecuteChildWorkflow(ctx, ChildWorkflow, input)
+
+var childExec workflow.Execution
+childFuture.GetChildWorkflowExecution().Get(ctx, &childExec)
+
+controlHandler.RegisterChildWorkflow(childExec.ID)
+```
+
+它说明父工作流启动子工作流后，会把子工作流 ID 注册到 `controlHandler` 里。
+
+之后父工作流收到暂停、恢复、取消信号时，会把信号继续发送给这些子工作流。
+
+整体逻辑是：
+
+```text
+父工作流收到 pause_v1
+  -> 父工作流自己标记 paused
+  -> 遍历已注册的 childWorkflowIDs
+  -> 给每个子工作流发送 pause_v1
+```
+
+所以这个系统不是只有父工作流能暂停，而是形成了一个控制树：
+
+```text
+OrchestratorWorkflow
+  |
+  |-- SimpleWorkflow
+  |     |
+  |     |-- AgentWorkflow
+  |
+  |-- SupervisorWorkflow
+  |     |
+  |     |-- ResearchWorkflow
+  |
+  |-- DAGWorkflow
+        |
+        |-- NodeWorkflow A
+        |-- NodeWorkflow B
+```
+
+暂停、恢复、取消会从父级向子级传播。
+
+---
+
+## 7. QueryHandler 是做什么的？
+
+文档里说：
+
+```go
+control_state_v1
+```
+
+返回：
+
+```go
+type WorkflowControlState struct {
+    IsPaused      bool
+    PausedAt      time.Time
+    PauseReason   string
+    PausedBy      string
+    IsCancelled   bool
+    CancelReason  string
+    CancelledBy   string
+}
+```
+
+这是 Temporal 的 Query 机制。
+
+它的作用是：**不改变工作流状态，只读取当前状态。**
+
+前端或者后端可以通过 `GetControlState` 查询：
+
+```text
+这个工作流现在是否暂停？
+是谁暂停的？
+什么时候暂停的？
+是否被取消？
+取消原因是什么？
+```
+
+它和数据库状态不同。
+
+文档里也提到了一个问题：
+
+> 控制状态显示已暂停但状态为 RUNNING
+
+这个很正常。
+
+因为 Temporal 视角下，Workflow 还没有结束，它只是阻塞在 `workflow.Await()` 里，所以它仍然是 RUNNING。
+
+业务视角下，它是 paused。
+
+所以这里有两个状态体系：
+
+| 状态来源                     | 含义                                        |
+| ------------------------ | ----------------------------------------- |
+| Temporal Workflow Status | RUNNING / COMPLETED / FAILED / CANCELED   |
+| 业务控制状态                   | paused / resumed / cancelling / cancelled |
+
+暂停时，Temporal 仍然可能显示 RUNNING。
+
+---
+
+## 8. SSE 事件是怎么接入的？
+
+文档里列了这些事件：
+
+| 内部类型                | SSE 事件              |
+| ------------------- | ------------------- |
+| WORKFLOW_PAUSING    | workflow.pausing    |
+| WORKFLOW_PAUSED     | workflow.paused     |
+| WORKFLOW_RESUMED    | workflow.resumed    |
+| WORKFLOW_CANCELLING | workflow.cancelling |
+| WORKFLOW_CANCELLED  | workflow.cancelled  |
+
+这说明系统还有一层事件推送机制，用于前端实时显示。
+
+大概链路是：
+
+```text
+Workflow 控制状态变化
+  -> 产生内部事件
+  -> 写入事件流 / 消息队列 / 数据库 / Activity
+  -> SSE 服务监听
+  -> 推送到前端
+```
+
+这里有一个实现细节要特别注意：
+
+**Temporal Workflow 代码里不能随便直接做外部 IO。**
+
+比如不能在 workflow 函数里直接：
+
+```go
+http.Post(...)
+redis.Publish(...)
+database.Insert(...)
+```
+
+因为 Temporal Workflow 要求确定性执行。
+
+比较推荐的做法是：
+
+```text
+Workflow
+  -> ExecuteActivity(EmitWorkflowEventActivity)
+  -> Activity 负责写 DB / 发 MQ / 推 SSE 事件
+```
+
+或者：
+
+```text
+Workflow 只更新状态
+后端通过 Query / Visibility / 事件表转换成 SSE
+```
+
+如果 Shannon 的实现里 `EmitCtx` 在 workflow 内部直接操作外部连接，那就要警惕确定性问题。更合理的是把 emit 封装成 Activity 或者由外部服务消费 Temporal 事件。
+
+---
+
+## 9. `workflow.GetVersion()` 是为什么？
+
+这一段说明它考虑了 Temporal 的重放兼容：
+
+```go
+version := workflow.GetVersion(ctx, "pause_resume_v1", workflow.DefaultVersion, 1)
+if version < 1 {
+    return
+}
+```
+
+Temporal Workflow 有一个特点：**工作流代码升级后，旧的工作流历史事件还会用新代码重放。**
+
+如果你直接改 workflow 逻辑，可能导致旧历史重放失败。
+
+所以 Temporal 提供 `GetVersion()` 做版本门控。
+
+这里的意思是：
+
+```text
+旧工作流：
+  不启用 pause / resume / cancel 控制逻辑
+
+新工作流：
+  启用 pause / resume / cancel 控制逻辑
+```
+
+这样可以避免线上运行中的老工作流因为代码升级而重放失败。
+
+这也是判断它使用 Temporal 的强证据之一。
+
+---
+
+## 10. 总体实现机制图
+
+```mermaid
+flowchart TD
+    A[前端操作<br/>暂停/恢复/取消] --> B[gRPC API<br/>PauseTask/ResumeTask/CancelTask]
+
+    B --> C[Temporal Client]
+    C --> D[发送 Workflow Signal<br/>pause_v1/resume_v1/cancel_v1]
+
+    D --> E[父 Workflow<br/>SignalHandler]
+
+    E --> F[更新控制状态<br/>paused/cancelled]
+    E --> G[传播信号到子 Workflow]
+
+    G --> H[子 Workflow<br/>SignalHandler]
+    H --> I[子 Workflow 控制状态更新]
+
+    F --> J[父 Workflow 到达 CheckPausePoint]
+    I --> K[子 Workflow 到达 CheckPausePoint]
+
+    J --> L{当前状态}
+    K --> M{当前状态}
+
+    L -->|paused| N[workflow.Await 阻塞]
+    L -->|cancelled| O[返回取消错误]
+    L -->|normal| P[继续执行]
+
+    M -->|paused| Q[workflow.Await 阻塞]
+    M -->|cancelled| R[返回取消错误]
+    M -->|normal| S[继续执行]
+
+    N --> T[resume_v1 到达后继续]
+    Q --> U[resume_v1 到达后继续]
+
+    E --> V[SSE 事件<br/>workflow.pausing/paused/resumed]
+    H --> V
+    V --> W[前端实时展示状态]
+```
+
+---
+
+## 11. 这套设计的核心特点
+
+可以总结成 6 点：
+
+| 设计点                      | 说明                                       |
+| ------------------------ | ---------------------------------------- |
+| 基于 Temporal Signal       | pause / resume / cancel 都通过信号传入 Workflow |
+| 基于 QueryHandler 查询状态     | `control_state_v1` 用于读取实时控制状态            |
+| 基于检查点暂停                  | 只有到达 `CheckPausePoint` 才暂停               |
+| 基于 `workflow.Await()` 阻塞 | 无轮询、低开销、Temporal 原生等待机制                  |
+| 支持子工作流传播                 | 父工作流注册子工作流 ID，然后向下分发控制信号                 |
+| 使用 `GetVersion()` 保证兼容   | 避免老工作流重放失败                               |
+
+---
+
+## 12. 和普通状态机的区别
+
+普通状态机可能是这样：
+
+```text
+数据库里有一条 workflow_run.status = PAUSED
+worker 每隔几秒查一次
+如果发现 paused 就停止执行
+```
+
+而这里不是。
+
+这里更像：
+
+```text
+Temporal 负责持久化 workflow 执行历史
+pause/resume/cancel 作为 signal 写入 history
+workflow 重放时可以恢复出控制状态
+workflow.Await 负责挂起
+query handler 负责读取状态
+```
+
+所以它不是简单的数据库状态控制，而是利用 Temporal 的工作流事件历史、信号、查询、子工作流、版本控制实现的。
+
+---
+
+## 13. 我的判断结论
+
+这份文档描述的工作流控制系统，底层应该是：
+
+```text
+Temporal Go SDK + 自定义 control.SignalHandler
+```
+
+其中：
+
+* **Temporal** 负责工作流运行、状态持久化、信号接收、查询、子工作流、确定性重放；
+* **Shannon 自己封装的 control.SignalHandler** 负责 pause / resume / cancel 语义；
+* **gRPC API** 是外部控制入口；
+* **SSE** 是前端状态推送；
+* **检查点机制** 是业务层主动插入的暂停安全点；
+* **取消机制** 是业务层协作式取消，而不一定是 Temporal 原生取消。
+
+一句话概括：
+
+> 这是一个基于 Temporal Workflow Signal + Query + Await + ChildWorkflow + GetVersion 封装出来的工作流控制系统，实现了可暂停、可恢复、可取消、可传播到子工作流、且重放安全的协作式控制机制。
