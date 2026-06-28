@@ -1,14 +1,14 @@
-# Shannon Event Types Reference
+# Shannon 事件类型参考
 
-This document provides a comprehensive reference for all event types emitted by Shannon workflows.
+本文档提供 Shannon 工作流发出的所有事件类型的全面参考。
 
-## Overview
+## 概述
 
-Shannon emits events at various stages of workflow execution to provide real-time visibility into task processing, agent coordination, LLM interactions, and tool execution. Events follow a minimal, deterministic model designed for streaming via SSE, WebSocket, or gRPC.
+Shannon 在工作流执行的不同阶段发出事件，以提供任务处理、代理协调、LLM 交互和工具执行的实时可见性。事件遵循最小化、确定性模型，设计用于通过 SSE、WebSocket 或 gRPC 进行流式传输。
 
-## Event Structure
+## 事件结构
 
-All events share a common structure:
+所有事件共享一个通用结构：
 
 ```json
 {
@@ -22,26 +22,26 @@ All events share a common structure:
 }
 ```
 
-**Fields:**
-- `workflow_id` (string, required) - Unique workflow identifier
-- `type` (string, required) - Event type (see categories below)
-- `agent_id` (string, optional) - Agent that emitted the event
-- `message` (string, optional) - Human-readable description
-- `timestamp` (RFC3339, required) - Event timestamp
-- `seq` (integer, required) - Monotonic sequence number for ordering
-- `stream_id` (string, optional) - Stream identifier for event grouping
+**字段：**
+- `workflow_id`（字符串，必需）- 唯一工作流标识符
+- `type`（字符串，必需）- 事件类型（参见以下分类）
+- `agent_id`（字符串，可选）- 发出事件的代理
+- `message`（字符串，可选）- 人类可读的描述
+- `timestamp`（RFC3339，必需）- 事件时间戳
+- `seq`（整数，必需）- 用于排序的单调递增序列号
+- `stream_id`（字符串，可选）- 用于事件分组的流标识符
 
-## Event Categories
+## 事件分类
 
-### Core Workflow Events
+### 核心工作流事件
 
-Events that mark major workflow lifecycle transitions.
+标记主要工作流生命周期转换的事件。
 
 #### `WORKFLOW_STARTED`
-**Description:** Task processing started by the orchestrator
-**Agent ID:** `orchestrator`
-**Example Message:** `"Starting task"`
-**Typical Sequence:** First event in workflow
+**描述：** 编排器开始任务处理
+**代理 ID：** `orchestrator`
+**示例消息：** `"Starting task"`
+**典型序列：** 工作流中的首个事件
 
 ```json
 {
@@ -59,13 +59,13 @@ Events that mark major workflow lifecycle transitions.
 }
 ```
 
-**Note:** `payload.task_context.attachments` is present only when the task includes file attachments. Each entry contains a Redis reference ID, MIME type, filename, and decoded size.
+**注意：** `payload.task_context.attachments` 仅在任务包含文件附件时存在。每个条目包含 Redis 引用 ID、MIME 类型、文件名和已解码的大小。
 
 #### `WORKFLOW_COMPLETED`
-**Description:** Workflow finished successfully
-**Agent ID:** Agent that completed the task
-**Example Message:** `"All done"`
-**Typical Sequence:** Final event in successful workflows
+**描述：** 工作流成功完成
+**代理 ID：** 完成任务的代理
+**示例消息：** `"All done"`
+**典型序列：** 成功工作流的最终事件
 
 ```json
 {
@@ -77,9 +77,9 @@ Events that mark major workflow lifecycle transitions.
 ```
 
 #### `AGENT_STARTED`
-**Description:** Agent began processing a task
-**Agent ID:** Agent identifier
-**Example Message:** `"Processing query"`
+**描述：** 代理开始处理任务
+**代理 ID：** 代理标识符
+**示例消息：** `"Processing query"`
 
 ```json
 {
@@ -91,9 +91,9 @@ Events that mark major workflow lifecycle transitions.
 ```
 
 #### `AGENT_COMPLETED`
-**Description:** Agent finished processing
-**Agent ID:** Agent identifier
-**Example Message:** `"Task complete"`
+**描述：** 代理完成处理
+**代理 ID：** 代理标识符
+**示例消息：** `"Task complete"`
 
 ```json
 {
@@ -105,10 +105,10 @@ Events that mark major workflow lifecycle transitions.
 ```
 
 #### `ERROR_OCCURRED`
-**Description:** An error occurred during workflow execution
-**Agent ID:** Agent where error occurred (optional)
-**Example Message:** Error description
-**Note:** May include error details in message field
+**描述：** 工作流执行期间发生错误
+**代理 ID：** 发生错误的代理（可选）
+**示例消息：** 错误描述
+**注意：** 可能在消息字段中包含错误详情
 
 ```json
 {
@@ -120,10 +120,10 @@ Events that mark major workflow lifecycle transitions.
 ```
 
 #### `AGENT_THINKING`
-**Description:** Agent is in planning/reasoning phase
-**Agent ID:** Agent identifier
-**Example Message:** `"Thinking: What is 5 + 5?"`
-**Note:** Provides visibility into agent decision-making
+**描述：** 代理处于规划/推理阶段
+**代理 ID：** 代理标识符
+**示例消息：** `"Thinking: What is 5 + 5?"`
+**注意：** 提供代理决策过程的可见性
 
 ```json
 {
@@ -136,15 +136,15 @@ Events that mark major workflow lifecycle transitions.
 
 ---
 
-### LLM Events
+### LLM 事件
 
-Events related to Large Language Model interactions.
+与大型语言模型交互相关的事件。
 
 #### `LLM_PROMPT`
-**Description:** Sanitized prompt sent to LLM
-**Agent ID:** Agent making the LLM call
-**Example Message:** The actual prompt text
-**Privacy:** May be sanitized for PII/sensitive data
+**描述：** 发送给 LLM 的已清理提示词
+**代理 ID：** 进行 LLM 调用的代理
+**示例消息：** 实际的提示词文本
+**隐私：** 可能对 PII/敏感数据进行清理
 
 ```json
 {
@@ -156,11 +156,11 @@ Events related to Large Language Model interactions.
 ```
 
 #### `LLM_PARTIAL`
-**Description:** Incremental LLM output chunk during streaming
-**Agent ID:** Agent receiving the stream
-**Example Message:** Partial text chunk
-**Note:** Often filtered out in UI for cleaner chat history
-**Filtering:** Excluded by `/api/v1/sessions/{sessionId}/events` endpoint
+**描述：** 流式传输期间的增量 LLM 输出块
+**代理 ID：** 接收流的代理
+**示例消息：** 部分文本块
+**注意：** 在 UI 中通常被过滤掉以获得更清晰的聊天历史
+**过滤：** 被 `/api/v1/sessions/{sessionId}/events` 端点排除
 
 ```json
 {
@@ -172,10 +172,10 @@ Events related to Large Language Model interactions.
 ```
 
 #### `LLM_OUTPUT`
-**Description:** Final complete LLM response
-**Agent ID:** Agent that made the LLM call
-**Example Message:** Complete response text
-**Note:** This is the final answer, not streaming chunks
+**描述：** 最终完整的 LLM 响应
+**代理 ID：** 进行 LLM 调用的代理
+**示例消息：** 完整响应文本
+**注意：** 这是最终答案，而非流式块
 
 ```json
 {
@@ -187,9 +187,9 @@ Events related to Large Language Model interactions.
 ```
 
 #### `TOOL_OBSERVATION`
-**Description:** Result/output from tool execution
-**Agent ID:** Agent executing the tool
-**Example Message:** Tool output or observation
+**描述：** 工具执行的结果/输出
+**代理 ID：** 执行工具的代理
+**示例消息：** 工具输出或观察结果
 
 ```json
 {
@@ -202,14 +202,14 @@ Events related to Large Language Model interactions.
 
 ---
 
-### Multi-Agent Coordination Events
+### 多代理协调事件
 
-Events for multi-agent workflows and team collaboration.
+用于多代理工作流和团队协作的事件。
 
 #### `DELEGATION`
-**Description:** Task delegated to another agent or workflow
-**Agent ID:** Delegating agent (optional)
-**Example Message:** `"Processing as simple task"`, `"Coordinating multiple agents"`
+**描述：** 任务委托给另一个代理或工作流
+**代理 ID：** 委托代理（可选）
+**示例消息：** `"Processing as simple task"`、`"Coordinating multiple agents"`
 
 ```json
 {
@@ -220,10 +220,10 @@ Events for multi-agent workflows and team collaboration.
 ```
 
 #### `MESSAGE_SENT`
-**Description:** Agent sent a message to another agent
-**Agent ID:** Sending agent
-**Example Message:** Message content
-**Feature Gate:** Requires `p2p_v1` enabled
+**描述：** 代理向另一个代理发送消息
+**代理 ID：** 发送代理
+**示例消息：** 消息内容
+**功能门控：** 需要启用 `p2p_v1`
 
 ```json
 {
@@ -235,10 +235,10 @@ Events for multi-agent workflows and team collaboration.
 ```
 
 #### `MESSAGE_RECEIVED`
-**Description:** Agent received a message
-**Agent ID:** Receiving agent
-**Example Message:** Message content
-**Feature Gate:** Requires `p2p_v1` enabled
+**描述：** 代理收到消息
+**代理 ID：** 接收代理
+**示例消息：** 消息内容
+**功能门控：** 需要启用 `p2p_v1`
 
 ```json
 {
@@ -250,10 +250,10 @@ Events for multi-agent workflows and team collaboration.
 ```
 
 #### `TEAM_RECRUITED`
-**Description:** New agent recruited to the team
-**Agent ID:** Role of recruited agent
-**Example Message:** Description/reason for recruitment
-**Feature Gate:** Requires `dynamic_team_v1` enabled
+**描述：** 新代理被招募到团队
+**代理 ID：** 被招募代理的角色
+**示例消息：** 招募的描述/原因
+**功能门控：** 需要启用 `dynamic_team_v1`
 
 ```json
 {
@@ -265,10 +265,10 @@ Events for multi-agent workflows and team collaboration.
 ```
 
 #### `TEAM_RETIRED`
-**Description:** Agent retired from the team
-**Agent ID:** Retired agent identifier
-**Example Message:** Retirement reason
-**Feature Gate:** Requires `dynamic_team_v1` enabled
+**描述：** 代理从团队退休
+**代理 ID：** 退休代理标识符
+**示例消息：** 退休原因
+**功能门控：** 需要启用 `dynamic_team_v1`
 
 ```json
 {
@@ -280,9 +280,9 @@ Events for multi-agent workflows and team collaboration.
 ```
 
 #### `ROLE_ASSIGNED`
-**Description:** Role assigned to an agent
-**Agent ID:** Agent receiving the role
-**Example Message:** Role details
+**描述：** 角色被分配给代理
+**代理 ID：** 接收角色的代理
+**示例消息：** 角色详情
 
 ```json
 {
@@ -295,15 +295,15 @@ Events for multi-agent workflows and team collaboration.
 
 ---
 
-### Progress & Status Events
+### 进度与状态事件
 
-Events that provide status updates and progress information.
+提供状态更新和进度信息的事件。
 
 #### `PROGRESS`
-**Description:** Step completion or progress update
-**Agent ID:** Agent reporting progress
-**Example Message:** `"Created a plan with 1 step"`, `"Completed step 2 of 5"`
-**Use Case:** Progress bars, status indicators
+**描述：** 步骤完成或进度更新
+**代理 ID：** 报告进度的代理
+**示例消息：** `"Created a plan with 1 step"`、`"Completed step 2 of 5"`
+**用例：** 进度条、状态指示器
 
 ```json
 {
@@ -315,10 +315,10 @@ Events that provide status updates and progress information.
 ```
 
 #### `DATA_PROCESSING`
-**Description:** Processing, analyzing, or preparing data
-**Agent ID:** Processing agent (optional)
-**Example Message:** `"Preparing context"`, `"Analyzing results"`, `"Answer ready"`
-**Note:** Used for various processing stages
+**描述：** 处理、分析或准备数据
+**代理 ID：** 处理代理（可选）
+**示例消息：** `"Preparing context"`、`"Analyzing results"`、`"Answer ready"`
+**注意：** 用于各种处理阶段
 
 ```json
 {
@@ -329,10 +329,10 @@ Events that provide status updates and progress information.
 ```
 
 #### `TEAM_STATUS`
-**Description:** Multi-agent coordination status update
-**Agent ID:** Coordinator or team lead
-**Example Message:** Team status description
-**Use Case:** Multi-agent workflow visibility
+**描述：** 多代理协调状态更新
+**代理 ID：** 协调员或团队负责人
+**示例消息：** 团队状态描述
+**用例：** 多代理工作流可见性
 
 ```json
 {
@@ -344,9 +344,9 @@ Events that provide status updates and progress information.
 ```
 
 #### `WAITING`
-**Description:** Waiting for resources, responses, or approvals
-**Agent ID:** Waiting agent
-**Example Message:** What the agent is waiting for
+**描述：** 等待资源、响应或批准
+**代理 ID：** 等待代理
+**示例消息：** 代理在等待什么
 
 ```json
 {
@@ -358,10 +358,10 @@ Events that provide status updates and progress information.
 ```
 
 #### `WORKSPACE_UPDATED`
-**Description:** Workspace or context was modified
-**Agent ID:** Agent that updated workspace
-**Example Message:** Update description
-**Feature Gate:** Requires `p2p_v1` enabled
+**描述：** 工作区或上下文被修改
+**代理 ID：** 更新工作区的代理
+**示例消息：** 更新描述
+**功能门控：** 需要启用 `p2p_v1`
 
 ```json
 {
@@ -374,15 +374,15 @@ Events that provide status updates and progress information.
 
 ---
 
-### Tool Execution Events
+### 工具执行事件
 
-Events related to tool and function invocation.
+与工具和函数调用相关的事件。
 
 #### `TOOL_INVOKED`
-**Description:** Tool/function execution started
-**Agent ID:** Agent invoking the tool
-**Example Message:** Tool name and parameters
-**Note:** May include sanitized parameters
+**描述：** 工具/函数执行开始
+**代理 ID：** 调用工具的代理
+**示例消息：** 工具名称和参数
+**注意：** 可能包含已清理的参数
 
 ```json
 {
@@ -395,15 +395,15 @@ Events related to tool and function invocation.
 
 ---
 
-### Human Interaction Events
+### 人机交互事件
 
-Events for human-in-the-loop workflows.
+用于人机回环工作流的事件。
 
 #### `APPROVAL_REQUESTED`
-**Description:** Workflow requests human approval
-**Agent ID:** Agent requesting approval
-**Example Message:** Approval request details
-**Use Case:** Human-in-the-loop workflows
+**描述：** 工作流请求人工批准
+**代理 ID：** 请求批准的代理
+**示例消息：** 批准请求详情
+**用例：** 人机回环工作流
 
 ```json
 {
@@ -415,9 +415,9 @@ Events for human-in-the-loop workflows.
 ```
 
 #### `APPROVAL_DECISION`
-**Description:** Human approval decision received
-**Agent ID:** Agent that requested approval
-**Example Message:** Decision (approved/rejected) and optional comment
+**描述：** 收到人工批准决定
+**代理 ID：** 请求批准的代理
+**示例消息：** 决定（已批准/已拒绝）及可选评论
 
 ```json
 {
@@ -430,15 +430,15 @@ Events for human-in-the-loop workflows.
 
 ---
 
-### HITL Research Review Events
+### HITL 研究审查事件
 
-Events for human-in-the-loop research plan review workflows. These events are emitted when a task is submitted with `review_plan: "manual"` or `require_review: true`.
+用于人机回环研究计划审查工作流的事件。当任务以 `review_plan: "manual"` 或 `require_review: true` 提交时，会发出这些事件。
 
 #### `RESEARCH_PLAN_READY`
-**Description:** Initial research plan generated, waiting for user review
-**Agent ID:** `research-planner`
-**Example Message:** The generated research plan text
-**Use Case:** Signals frontend to display review UI
+**描述：** 初始研究计划已生成，等待用户审查
+**代理 ID：** `research-planner`
+**示例消息：** 生成的研究计划文本
+**用例：** 通知前端显示审查 UI
 
 ```json
 {
@@ -455,10 +455,10 @@ Events for human-in-the-loop research plan review workflows. These events are em
 ```
 
 #### `REVIEW_USER_FEEDBACK`
-**Description:** User submitted feedback on the research plan
-**Agent ID:** `user`
-**Example Message:** User's feedback text
-**Use Case:** Persists user feedback in event history
+**描述：** 用户提交了对研究计划的反馈
+**代理 ID：** `user`
+**示例消息：** 用户的反馈文本
+**用例：** 在事件历史中持久化用户反馈
 
 ```json
 {
@@ -474,10 +474,10 @@ Events for human-in-the-loop research plan review workflows. These events are em
 ```
 
 #### `RESEARCH_PLAN_UPDATED`
-**Description:** Research plan updated based on user feedback
-**Agent ID:** `research-planner`
-**Example Message:** Updated plan text
-**Use Case:** Shows refined plan in review UI
+**描述：** 根据用户反馈更新了研究计划
+**代理 ID：** `research-planner`
+**示例消息：** 更新后的计划文本
+**用例：** 在审查 UI 中显示细化后的计划
 
 ```json
 {
@@ -493,16 +493,16 @@ Events for human-in-the-loop research plan review workflows. These events are em
 }
 ```
 
-**Payload Fields:**
-- `round` (integer): Current review round (1-10)
-- `version` (integer): State version for optimistic concurrency
-- `intent` (string): LLM's assessment — `"feedback"` | `"ready"` | `"execute"`
+**负载字段：**
+- `round`（整数）：当前审查轮次（1-10）
+- `version`（整数）：乐观并发的状态版本
+- `intent`（字符串）：LLM 的评估 — `"feedback"` | `"ready"` | `"execute"`
 
 #### `RESEARCH_PLAN_APPROVED`
-**Description:** User approved the research plan, execution begins
-**Agent ID:** `orchestrator`
-**Example Message:** Approval confirmation
-**Use Case:** Signals transition from review to execution
+**描述：** 用户批准了研究计划，开始执行
+**代理 ID：** `orchestrator`
+**示例消息：** 批准确认
+**用例：** 表示从审查过渡到执行
 
 ```json
 {
@@ -519,12 +519,12 @@ Events for human-in-the-loop research plan review workflows. These events are em
 
 ---
 
-### Advanced Features
+### 高级功能
 
 #### `DEPENDENCY_SATISFIED`
-**Description:** Workflow dependency was satisfied
-**Agent ID:** Agent or workflow identifier
-**Example Message:** Dependency description
+**描述：** 工作流依赖已满足
+**代理 ID：** 代理或工作流标识符
+**示例消息：** 依赖描述
 
 ```json
 {
@@ -536,9 +536,9 @@ Events for human-in-the-loop research plan review workflows. These events are em
 ```
 
 #### `ERROR_RECOVERY`
-**Description:** System recovering from an error
-**Agent ID:** Agent performing recovery
-**Example Message:** Recovery action description
+**描述：** 系统从错误中恢复
+**代理 ID：** 执行恢复的代理
+**示例消息：** 恢复操作描述
 
 ```json
 {
@@ -551,18 +551,18 @@ Events for human-in-the-loop research plan review workflows. These events are em
 
 ---
 
-## Event Filtering
+## 事件过滤
 
-### By Type
+### 按类型过滤
 
-Filter events by type using the `types` parameter:
+使用 `types` 参数按类型过滤事件：
 
-**SSE:**
+**SSE：**
 ```bash
 curl -N "http://localhost:8081/stream/sse?workflow_id=task-123&types=AGENT_STARTED,AGENT_COMPLETED"
 ```
 
-**gRPC:**
+**gRPC：**
 ```go
 request := &pb.StreamRequest{
     WorkflowId: "task-123",
@@ -570,114 +570,114 @@ request := &pb.StreamRequest{
 }
 ```
 
-### Common Filtering Patterns
+### 常用过滤模式
 
-**Chat UI (exclude streaming chunks):**
+**聊天 UI（排除流式块）：**
 ```
 types=WORKFLOW_STARTED,AGENT_THINKING,LLM_PROMPT,LLM_OUTPUT,AGENT_COMPLETED,ERROR_OCCURRED
 ```
 
-**Progress Tracking:**
+**进度跟踪：**
 ```
 types=WORKFLOW_STARTED,PROGRESS,AGENT_COMPLETED,WORKFLOW_COMPLETED
 ```
 
-**Team Coordination:**
+**团队协调：**
 ```
 types=TEAM_RECRUITED,TEAM_RETIRED,MESSAGE_SENT,MESSAGE_RECEIVED
 ```
 
-**HITL Research Review:**
+**HITL 研究审查：**
 ```
 types=RESEARCH_PLAN_READY,REVIEW_USER_FEEDBACK,RESEARCH_PLAN_UPDATED,RESEARCH_PLAN_APPROVED
 ```
 
-**Error Monitoring:**
+**错误监控：**
 ```
 types=ERROR_OCCURRED,ERROR_RECOVERY
 ```
 
-### Session Events API
+### 会话事件 API
 
-The session events endpoint (`GET /api/v1/sessions/{sessionId}/events`) automatically excludes `LLM_PARTIAL` events for cleaner chat history:
+会话事件端点（`GET /api/v1/sessions/{sessionId}/events`）自动排除 `LLM_PARTIAL` 事件，以获得更清晰的聊天历史：
 
 ```bash
 curl "http://localhost:8080/api/v1/sessions/{sessionId}/events?limit=200" \
   -H "X-API-Key: your-key"
 ```
 
-**Why LLM_PARTIAL is excluded:**
-- Reduces noise in conversation history
-- Prevents duplicate content (partial + final)
-- Improves UI performance with fewer events
-- Final output is always available via `LLM_OUTPUT`
+**为什么排除 LLM_PARTIAL：**
+- 减少对话历史中的噪音
+- 防止重复内容（部分 + 最终）
+- 通过更少的事件提高 UI 性能
+- 最终输出始终可通过 `LLM_OUTPUT` 获得
 
 ---
 
-## Event Ordering
+## 事件顺序
 
-Events are guaranteed to be:
-1. **Monotonically increasing** - `seq` numbers always increase
-2. **Deterministic** - Same workflow replay produces same events
-3. **Ordered by timestamp** - Earlier events have earlier timestamps
+事件保证：
+1. **单调递增** - `seq` 编号始终增加
+2. **确定性** - 相同工作流重放产生相同事件
+3. **按时间戳排序** - 较早的事件具有较早的时间戳
 
-### Typical Event Flow
+### 典型事件流
 
-Simple query workflow:
+简单查询工作流：
 ```
-1. WORKFLOW_STARTED (orchestrator)
-2. DATA_PROCESSING (preparing context)
-3. PROGRESS (planner creates plan)
-4. DELEGATION (hand off to agent)
-5. AGENT_STARTED (simple-agent)
-6. AGENT_THINKING (reasoning)
-7. LLM_PROMPT (query sent)
-8. LLM_PARTIAL (streaming...) [often filtered]
-9. LLM_OUTPUT (final answer)
-10. AGENT_COMPLETED (simple-agent)
-11. WORKFLOW_COMPLETED (simple-agent)
+1. WORKFLOW_STARTED（orchestrator）
+2. DATA_PROCESSING（准备上下文）
+3. PROGRESS（规划者创建计划）
+4. DELEGATION（移交给代理）
+5. AGENT_STARTED（simple-agent）
+6. AGENT_THINKING（推理）
+7. LLM_PROMPT（发送查询）
+8. LLM_PARTIAL（流式传输...）[通常被过滤]
+9. LLM_OUTPUT（最终答案）
+10. AGENT_COMPLETED（simple-agent）
+11. WORKFLOW_COMPLETED（simple-agent）
 ```
 
-Complex multi-agent workflow:
+复杂的多代理工作流：
 ```
 1. WORKFLOW_STARTED
-2. TEAM_RECRUITED (analyzer)
-3. TEAM_RECRUITED (writer)
-4. MESSAGE_SENT (coordinator → analyzer)
-5. MESSAGE_RECEIVED (analyzer)
-6. AGENT_STARTED (analyzer)
-7. TOOL_INVOKED (database_query)
-8. TOOL_OBSERVATION (results)
-9. LLM_OUTPUT (analysis)
-10. MESSAGE_SENT (analyzer → writer)
-11. AGENT_STARTED (writer)
-12. LLM_OUTPUT (final document)
+2. TEAM_RECRUITED（分析者）
+3. TEAM_RECRUITED（撰写者）
+4. MESSAGE_SENT（协调员 → 分析者）
+5. MESSAGE_RECEIVED（分析者）
+6. AGENT_STARTED（分析者）
+7. TOOL_INVOKED（database_query）
+8. TOOL_OBSERVATION（结果）
+9. LLM_OUTPUT（分析）
+10. MESSAGE_SENT（分析者 → 撰写者）
+11. AGENT_STARTED（撰写者）
+12. LLM_OUTPUT（最终文档）
 13. WORKFLOW_COMPLETED
 ```
 
-HITL research review workflow:
+HITL 研究审查工作流：
 ```
-1. WORKFLOW_STARTED (orchestrator)
-2. DATA_PROCESSING (preparing context)
-3. RESEARCH_PLAN_READY (research-planner) ← workflow pauses here
-   [User reviews plan in UI]
-4. REVIEW_USER_FEEDBACK (user) ← user provides feedback
-5. RESEARCH_PLAN_UPDATED (research-planner) ← refined plan
-   [User may provide more feedback or approve]
-6. RESEARCH_PLAN_APPROVED (orchestrator) ← user approves
-7. DELEGATION (starting research agents)
-8. AGENT_STARTED (research-agent-1)
-... [normal research workflow continues]
+1. WORKFLOW_STARTED（orchestrator）
+2. DATA_PROCESSING（准备上下文）
+3. RESEARCH_PLAN_READY（research-planner）← 工作流在此暂停
+   [用户在 UI 中审查计划]
+4. REVIEW_USER_FEEDBACK（user）← 用户提供反馈
+5. RESEARCH_PLAN_UPDATED（research-planner）← 细化后的计划
+   [用户可以提供更多反馈或批准]
+6. RESEARCH_PLAN_APPROVED（orchestrator）← 用户批准
+7. DELEGATION（启动研究代理）
+8. AGENT_STARTED（research-agent-1）
+... [正常研究工作流继续]
 N. WORKFLOW_COMPLETED
 ```
 
 ---
 
-## Implementation Notes
+## 实现说明
 
-### Event Emission
+### 事件发出
 
-Events are emitted through Temporal activities to ensure determinism:
+事件通过 Temporal 活动发出以确保确定性：
 
 ```go
 EmitTaskUpdate(ctx, EmitTaskUpdateInput{
@@ -689,111 +689,108 @@ EmitTaskUpdate(ctx, EmitTaskUpdateInput{
 })
 ```
 
-### Version Gates
+### 版本门控
 
-Some event types require feature gates to be enabled:
+某些事件类型需要启用功能门控：
 
-| Event Type | Feature Gate Required |
+| 事件类型 | 所需功能门控 |
 |------------|----------------------|
-| `MESSAGE_SENT`, `MESSAGE_RECEIVED`, `WORKSPACE_UPDATED` | `p2p_v1` |
-| `TEAM_RECRUITED`, `TEAM_RETIRED` | `dynamic_team_v1` |
+| `MESSAGE_SENT`、`MESSAGE_RECEIVED`、`WORKSPACE_UPDATED` | `p2p_v1` |
+| `TEAM_RECRUITED`、`TEAM_RETIRED` | `dynamic_team_v1` |
 
-### Storage & Retention
+### 存储与保留
 
-- Events are stored in `event_logs` table in PostgreSQL
-- Real-time streaming uses in-memory ring buffer (default: 256 events)
-- Historical events are queryable via REST API
-- Real-time streaming uses bounded Redis Streams; capacity (~256 items per workflow by default) is configurable via `STREAMING_RING_CAPACITY` or programmatically with `streaming.Configure(n)`
+- 事件存储在 PostgreSQL 的 `event_logs` 表中
+- 实时流式传输使用内存环缓冲区（默认：256 个事件）
+- 历史事件可通过 REST API 查询
+- 实时流式传输使用有界 Redis Streams；容量（默认每个工作流约 256 项）可通过 `STREAMING_RING_CAPACITY` 或编程方式 `streaming.Configure(n)` 配置
 
 ---
 
-## API Endpoints
+## API 端点
 
-### Stream Real-Time Events
+### 流式传输实时事件
 
-**SSE:**
+**SSE：**
 ```bash
 GET /stream/sse?workflow_id={id}&types={csv}&last_event_id={id-or-seq}
 ```
 
-**WebSocket:**
+**WebSocket：**
 ```bash
 GET /stream/ws?workflow_id={id}&types={csv}&last_event_id={id-or-seq}
 ```
 
-Note: `last_event_id` accepts either a Redis stream ID (e.g., `1700000000000-0`) or a numeric sequence. When numeric, replay includes events with `seq > last_event_id`.
+注意：`last_event_id` 接受 Redis 流 ID（例如 `1700000000000-0`）或数字序列。当使用数字值时，重放包含 `seq > last_event_id` 的事件。
 
-**gRPC:**
+**gRPC：**
 ```protobuf
 rpc StreamTaskExecution(StreamRequest) returns (stream TaskUpdate);
 ```
 
-### Query Historical Events
+### 查询历史事件
 
-**Per-Task Events:**
+**按任务查询事件：**
 ```bash
 GET /api/v1/tasks/{id}/events?limit=50&offset=0
 ```
 
-**Session Events (excludes LLM_PARTIAL):**
+**会话事件（排除 LLM_PARTIAL）：**
 ```bash
 GET /api/v1/sessions/{sessionId}/events?limit=200&offset=0
 ```
 
-Note: Returns 404 if the session has been soft-deleted.
+注意：如果会话已被软删除，返回 404。
 
 ---
 
-## Best Practices
+## 最佳实践
 
-### For Frontend Developers
+### 对于前端开发者
 
-1. **Filter appropriately** - Don't subscribe to all events if you only need a subset
-2. **Handle reconnections** - Use `last_event_id` to resume from disconnects
-3. **Exclude LLM_PARTIAL for chat UI** - Use session events API or filter manually
-4. **Show progress events** - Use `PROGRESS` and `DATA_PROCESSING` for status updates
-5. **Group by workflow_id** - Multiple workflows may emit events concurrently
+1. **适当过滤** - 如果只需要子集，不要订阅所有事件
+2. **处理重新连接** - 使用 `last_event_id` 从断开连接处恢复
+3. **聊天 UI 排除 LLM_PARTIAL** - 使用会话事件 API 或手动过滤
+4. **显示进度事件** - 使用 `PROGRESS` 和 `DATA_PROCESSING` 进行状态更新
+5. **按 workflow_id 分组** - 多个工作流可能并发发出事件
 
-### For Backend Developers
+### 对于后端开发者
 
-1. **Always emit through activities** - Ensures determinism and Temporal replay safety
-2. **Include meaningful messages** - Help frontend display useful information
-3. **Use appropriate event types** - Don't overload generic types
-4. **Consider feature gates** - Check if advanced event types are enabled
-5. **Sanitize sensitive data** - Especially in `LLM_PROMPT` events
+1. **始终通过活动发出** - 确保确定性和 Temporal 重放安全
+2. **包含有意义的消息** - 帮助前端显示有用信息
+3. **使用适当的事件类型** - 不要使通用类型过载
+4. **考虑功能门控** - 检查高级事件类型是否已启用
+5. **清理敏感数据** - 尤其是在 `LLM_PROMPT` 事件中
 
-### For Operations
+### 对于运维人员
 
-1. **Monitor ERROR_OCCURRED events** - Set up alerts
-2. **Track ERROR_RECOVERY patterns** - Identify reliability issues
-3. **Adjust ring buffer size** - Based on workflow duration and event volume
-4. **Use event filtering** - Reduce storage and bandwidth for analytics
-
----
-
-## Related Documentation
-
-- **Streaming API**: `/docs/streaming-api.md` - SSE, WebSocket, gRPC protocols
-- **Session API**: OpenAPI spec at `/openapi.json` - REST endpoints
-- **Event Types Source**: `go/orchestrator/internal/activities/stream_events.go`
+1. **监控 ERROR_OCCURRED 事件** - 设置告警
+2. **跟踪 ERROR_RECOVERY 模式** - 识别可靠性问题
+3. **调整环缓冲区大小** - 基于工作流持续时间和事件量
+4. **使用事件过滤** - 减少分析和存储的带宽
 
 ---
 
-## Quick Reference
+## 相关文档
 
-| Category | Event Types | Count |
+- **流式 API**：`/docs/streaming-api.md` - SSE、WebSocket、gRPC 协议
+- **会话 API**：OpenAPI 规范位于 `/openapi.json` - REST 端点
+- **事件类型源码**：`go/orchestrator/internal/activities/stream_events.go`
+
+---
+
+## 快速参考
+
+| 分类 | 事件类型 | 数量 |
 |----------|-------------|-------|
-| **Core Workflow** | WORKFLOW_STARTED, WORKFLOW_COMPLETED, AGENT_STARTED, AGENT_COMPLETED, ERROR_OCCURRED, AGENT_THINKING | 6 |
-| **LLM Events** | LLM_PROMPT, LLM_PARTIAL, LLM_OUTPUT, TOOL_OBSERVATION | 4 |
-| **Multi-Agent** | DELEGATION, MESSAGE_SENT, MESSAGE_RECEIVED, TEAM_RECRUITED, TEAM_RETIRED, ROLE_ASSIGNED | 6 |
-| **Progress/Status** | PROGRESS, DATA_PROCESSING, TEAM_STATUS, WAITING, WORKSPACE_UPDATED | 5 |
-| **Tools** | TOOL_INVOKED | 1 |
-| **Human Interaction** | APPROVAL_REQUESTED, APPROVAL_DECISION | 2 |
-| **HITL Research Review** | RESEARCH_PLAN_READY, REVIEW_USER_FEEDBACK, RESEARCH_PLAN_UPDATED, RESEARCH_PLAN_APPROVED | 4 |
-| **Advanced** | DEPENDENCY_SATISFIED, ERROR_RECOVERY | 2 |
-| **Total** | | **30** |
+| **核心工作流** | WORKFLOW_STARTED、WORKFLOW_COMPLETED、AGENT_STARTED、AGENT_COMPLETED、ERROR_OCCURRED、AGENT_THINKING | 6 |
+| **LLM 事件** | LLM_PROMPT、LLM_PARTIAL、LLM_OUTPUT、TOOL_OBSERVATION | 4 |
+| **多代理** | DELEGATION、MESSAGE_SENT、MESSAGE_RECEIVED、TEAM_RECRUITED、TEAM_RETIRED、ROLE_ASSIGNED | 6 |
+| **进度/状态** | PROGRESS、DATA_PROCESSING、TEAM_STATUS、WAITING、WORKSPACE_UPDATED | 5 |
+| **工具** | TOOL_INVOKED | 1 |
+| **人机交互** | APPROVAL_REQUESTED、APPROVAL_DECISION | 2 |
+| **HITL 研究审查** | RESEARCH_PLAN_READY、REVIEW_USER_FEEDBACK、RESEARCH_PLAN_UPDATED、RESEARCH_PLAN_APPROVED | 4 |
+| **高级** | DEPENDENCY_SATISFIED、ERROR_RECOVERY | 2 |
+| **总计** | | **30** |
 
 ---
-
-*Last Updated: 2025-10-27*
-*Shannon Version: 0.1.0*
