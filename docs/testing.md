@@ -1,234 +1,234 @@
-# Shannon Testing Guide
+# Shannon 测试指南
 
-Comprehensive guide for testing the Shannon platform, from unit tests to end-to-end scenarios.
+全面指南，涵盖从单元测试到端到端场景的 Shannon 平台测试。
 
-## Test Types
+## 测试类型
 
-### Unit Tests
-- **Go**: Co-located with code as `_test.go` files
-- **Rust**: Inline `#[cfg(test)]` modules inside crates
-- **Python**: Located in `python/llm-service/tests/`
+### 单元测试
+- **Go**：与代码放在一起，作为 `_test.go` 文件
+- **Rust**：在 crate 内使用内联 `#[cfg(test)]` 模块
+- **Python**：位于 `python/llm-service/tests/`
 
-### Integration Tests
-- **Temporal Workflows**: In-memory execution using Temporal testsuite with stubbed activities
-- **Smoke Tests**: Basic cross-service connectivity, persistence, metrics validation
-- **End-to-End (E2E)**: Multi-service scenarios under `tests/` with Docker Compose
+### 集成测试
+- **Temporal 工作流**：使用 Temporal 测试套件进行内存执行，并带有存根活动
+- **冒烟测试**：基础跨服务连接、持久化、指标验证
+- **端到端（E2E）**：位于 `tests/` 下使用 Docker Compose 的多服务场景
 
-## Quick Start
+## 快速开始
 
 ```bash
-# 1. Run all unit tests
+# 1. 运行所有单元测试
 make test
 
-# 2. Start the full stack
+# 2. 启动完整服务栈
 make dev
 
-# 3. Run smoke test (health, gRPC, persistence, metrics)
+# 3. 运行冒烟测试（健康检查、gRPC、持久化、指标）
 make smoke
 
-# 4. Run E2E scenarios
+# 4. 运行 E2E 场景
 tests/e2e/run.sh
 ```
 
-## Detailed Test Commands
+## 详细测试命令
 
-### Unit Testing by Language
+### 按语言的单元测试
 
 ```bash
-# Go tests with race detection
+# Go 测试（带竞态检测）
 cd go/orchestrator && go test -race ./...
 
-# Rust tests with output
+# Rust 测试（带输出）
 cd rust/agent-core && cargo test -- --nocapture
 
-# Python tests with coverage
+# Python 测试（带覆盖率）
 cd python/llm-service && python3 -m pytest --cov
 
-# WASI sandbox test
+# WASI 沙箱测试
 wat2wasm docs/assets/hello-wasi.wat -o /tmp/hello-wasi.wasm
 cd rust/agent-core && cargo run --example wasi_hello -- /tmp/hello-wasi.wasm
 ```
 
-### Temporal Workflow Testing
+### Temporal 工作流测试
 
 ```bash
-# Export workflow history
+# 导出工作流历史
 make replay-export WORKFLOW_ID=task-dev-XXX OUT=history.json
 
-# Test determinism
+# 测试确定性
 make replay HISTORY=history.json
 
-# Run all replay tests
+# 运行所有重放测试
 make ci-replay
 ```
 
-### Smoke Test Details
+### 冒烟测试详情
 
-The smoke test (`make smoke`) validates:
-- Temporal UI reachability (http://localhost:8088)
-- Agent-Core gRPC health and ExecuteTask
-- Orchestrator SubmitTask + GetTaskStatus progression
-- LLM service health/live/ready endpoints
-- PostgreSQL connectivity and migrations
-- Prometheus metrics endpoints (:2112, :2113)
+冒烟测试（`make smoke`）验证：
+- Temporal UI 可达性（http://localhost:8088）
+- Agent-Core gRPC 健康检查和 ExecuteTask
+- Orchestrator SubmitTask + GetTaskStatus 流程
+- LLM 服务健康检查/live/ready 端点
+- PostgreSQL 连接和迁移
+- Prometheus 指标端点（:2112、:2113）
 
-Vector search is disabled by default in this repo copy, so the smoke test does not require a local Qdrant instance.
+在此仓库副本中，向量搜索默认禁用，因此冒烟测试不需要本地 Qdrant 实例。
 
-### Manual Service Verification
+### 手动服务验证
 
 ```bash
-# Agent-Core health check
+# Agent-Core 健康检查
 grpcurl -plaintext localhost:50051 shannon.agent.AgentService/HealthCheck
 
-# Orchestrator submit task
+# Orchestrator 提交任务
 grpcurl -plaintext \
   -d '{"metadata":{"user_id":"dev","session_id":"s1"},"query":"Say hello"}' \
   localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
 
-# LLM service health
+# LLM 服务健康检查
 curl -fsS http://localhost:8000/health
 curl -fsS http://localhost:8000/health/ready
 
-# Metrics endpoints
+# 指标端点
 curl http://localhost:2112/metrics | head  # Orchestrator
 curl http://localhost:2113/metrics | head  # Agent Core
 ```
 
-## Test File Locations
+## 测试文件位置
 
-### Go Tests
-- `go/orchestrator/internal/workflows/*_test.go` - Workflow tests
-- `go/orchestrator/internal/activities/*_test.go` - Activity tests
-- `go/orchestrator/internal/session/manager_test.go` - Session management
-- `go/orchestrator/tests/replay/workflow_replay_test.go` - Replay validation
+### Go 测试
+- `go/orchestrator/internal/workflows/*_test.go` - 工作流测试
+- `go/orchestrator/internal/activities/*_test.go` - 活动测试
+- `go/orchestrator/internal/session/manager_test.go` - 会话管理
+- `go/orchestrator/tests/replay/workflow_replay_test.go` - 重放验证
 
-### Rust Tests
-- `rust/agent-core/src/memory.rs` - TTL, limits, LRU eviction
-- `rust/agent-core/src/wasi_sandbox.rs` - Path validation, sandboxed FS
-- `rust/agent-core/src/tools.rs` - Tool executor tests
+### Rust 测试
+- `rust/agent-core/src/memory.rs` - TTL、限制、LRU 淘汰
+- `rust/agent-core/src/wasi_sandbox.rs` - 路径验证、沙箱文件系统
+- `rust/agent-core/src/tools.rs` - 工具执行器测试
 
-### Python Tests
-- `python/llm-service/tests/test_manager.py` - Provider routing, cache, fallback
-- `python/llm-service/tests/test_ratelimiter.py` - Rate limiting
-- `python/llm-service/tests/test_tools.py` - Tool execution
+### Python 测试
+- `python/llm-service/tests/test_manager.py` - 提供商路由、缓存、回退
+- `python/llm-service/tests/test_ratelimiter.py` - 速率限制
+- `python/llm-service/tests/test_tools.py` - 工具执行
 
-## CI Pipeline
+## CI 流水线
 
-GitHub Actions runs:
-1. Rust tests with clippy linting
-2. Go build and tests with race detection
-3. Python linting (ruff) and pytest
-4. Temporal workflow replay tests
-5. Coverage reporting (informational)
+GitHub Actions 运行：
+1. Rust 测试（带 clippy 检查）
+2. Go 构建和测试（带竞态检测）
+3. Python 检查（ruff）和 pytest
+4. Temporal 工作流重放测试
+5. 覆盖率报告（仅供参考）
 
-## Coverage Requirements & Setup
+## 覆盖率要求与设置
 
-### Coverage Thresholds
-- **Go**: Minimum 50% coverage (current: ~57%)
-- **Python**: Baseline 20% coverage (current: ~15%, target: 70%)
-- **Rust**: Informational only (no minimum yet)
+### 覆盖率阈值
+- **Go**：最低 50% 覆盖率（当前：约 57%）
+- **Python**：基线 20% 覆盖率（当前：约 15%，目标：70%）
+- **Rust**：仅供参考（尚无最低要求）
 
-### Running Coverage Tests
+### 运行覆盖率测试
 
 ```bash
-# Run all coverage gates
+# 运行所有覆盖率门禁
 make coverage-gate
 
-# Individual language coverage
-make coverage-go       # Go coverage with threshold check
-make coverage-python   # Python coverage with venv setup
+# 各语言覆盖率
+make coverage-go       # Go 覆盖率（带阈值检查）
+make coverage-python   # Python 覆盖率（带 venv 设置）
 
-# For Rust coverage, use cargo tarpaulin directly:
+# 对于 Rust 覆盖率，直接使用 cargo tarpaulin：
 cd rust/agent-core && cargo tarpaulin --out Html
 
-# Generate detailed reports
+# 生成详细报告
 cd go/orchestrator && go test -coverprofile=coverage.out -covermode=atomic ./...
 cd python/llm-service && pytest --cov=. --cov-report=html
 ```
 
-### Well-Covered Modules
-- **Go Budget Manager**: 81%+ coverage
-- **Go Circuit Breaker**: 61%+ coverage
-- **Python Rate Limiter**: Good timing test coverage
-- **Rust Memory Manager**: LRU eviction and TTL tests
+### 覆盖率较好的模块
+- **Go Budget Manager**：81%+ 覆盖率
+- **Go Circuit Breaker**：61%+ 覆盖率
+- **Python Rate Limiter**：良好的时序测试覆盖率
+- **Rust Memory Manager**：LRU 淘汰和 TTL 测试
 
-### Coverage Goals
+### 覆盖率目标
 
-Current focus areas:
-- Gateway enforcement: timeouts, rate limits, circuit breakers
-- Budget manager: edge cases, DB operations, token tracking
-- LLM routing: provider fallback, rate limiting, caching
-- WASI sandbox: path traversal protection, resource limits
-- Pattern workflows: CoT, ToT, ReAct, Debate, Reflection
+当前关注领域：
+- Gateway 执行：超时、速率限制、断路器
+- Budget Manager：边缘情况、数据库操作、令牌跟踪
+- LLM 路由：提供商回退、速率限制、缓存
+- WASI 沙箱：路径遍历防护、资源限制
+- 模式工作流：CoT、ToT、ReAct、Debate、Reflection
 
-## Troubleshooting
+## 故障排查
 
-### Common Issues
+### 常见问题
 
-**Orchestrator cannot connect to Temporal**
-- Verify `TEMPORAL_HOST=temporal:7233` in environment
-- Check Temporal worker is started: `docker compose logs temporal`
+**Orchestrator 无法连接到 Temporal**
+- 验证环境中的 `TEMPORAL_HOST=temporal:7233`
+- 检查 Temporal worker 是否已启动：`docker compose logs temporal`
 
-**PostgreSQL migration failures**
+**PostgreSQL 迁移失败**
 ```bash
-docker compose down -v  # Clear volumes
-make dev                # Start fresh
+docker compose down -v  # 清理卷
+make dev                # 全新启动
 ```
 
-**LLM service not ready**
-- Provider API keys are optional in dev mode
-- Service may show ready=false without keys but still functions
+**LLM 服务未就绪**
+- 提供商 API 密钥在开发模式下是可选的
+- 没有密钥时服务可能显示 ready=false，但仍可工作
 
-**Port conflicts**
-Ensure these ports are free:
-- 50051 (Agent-Core gRPC)
-- 50052 (Orchestrator gRPC)
-- 8000 (LLM Service HTTP)
-- 8088 (Temporal UI)
-- 5432 (PostgreSQL)
-- 6379 (Redis)
+**端口冲突**
+确保以下端口空闲：
+- 50051（Agent-Core gRPC）
+- 50052（Orchestrator gRPC）
+- 8000（LLM Service HTTP）
+- 8088（Temporal UI）
+- 5432（PostgreSQL）
+- 6379（Redis）
 
-### Debugging Commands
+### 调试命令
 
 ```bash
-# View all logs
+# 查看所有日志
 make logs
 
-# View specific service logs
+# 查看特定服务日志
 docker compose logs -f orchestrator
 docker compose logs -f agent-core
 docker compose logs -f llm-service
 
-# Check database state
+# 检查数据库状态
 docker compose exec postgres psql -U shannon -d shannon \
   -c "SELECT workflow_id, status FROM task_executions ORDER BY created_at DESC LIMIT 5;"
 
-# Check Redis sessions
+# 检查 Redis 会话
 docker compose exec redis redis-cli KEYS "session:*"
 
-# List Temporal workflows
+# 列出 Temporal 工作流
 docker compose exec temporal temporal workflow list --address temporal:7233
 ```
 
-## Performance Testing
+## 性能测试
 
 ```bash
-# Load test with concurrent requests
+# 使用并发请求进行负载测试
 for i in {1..10}; do
-  ./scripts/submit_task.sh "Test query $i" &
+  ./scripts/submit_task.sh "测试查询 $i" &
 done
 wait
 
-# Monitor metrics during load
+# 在负载期间监控指标
 watch -n 1 'curl -s http://localhost:2112/metrics | grep shannon_'
 ```
 
-## Cleanup
+## 清理
 
 ```bash
-# Stop services
+# 停止服务
 make down
 
-# Clean all data (including volumes)
+# 清理所有数据（包括卷）
 make clean
 ```
